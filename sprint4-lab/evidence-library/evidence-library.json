@@ -1,0 +1,282 @@
+{
+  "CASE-001": {
+    "client": "BookConv",
+    "industry": "ebook_tools",
+    "baseline_metrics": {
+      "case_id": "CASE-001",
+      "version": "baseline",
+      "query_count": 15,
+      "mention_rate": 100.0,
+      "citation_rate": 100.0,
+      "recommendation_rate": 86.67,
+      "query_coverage": 38.46,
+      "avg_recommendation_level": 2.133,
+      "competitor_count": 0,
+      "captured_at": "2026-09-14T07:34:36.476281"
+    },
+    "findings": [
+      {
+        "finding_id": "FND-BC-001",
+        "category": "Coverage Gap",
+        "severity": "HIGH",
+        "statement": "30/39 目标 query 未被 Bing AI Performance 覆盖测量（多为品类/对比类）",
+        "evidence": "未覆盖示例：bookconv, bookconv ebook converter, bookconv review, bookconv alternative, is bookconv safe …",
+        "reason": "真实 AI 可见性数据仅覆盖已产生 citation 的 query；品类词/对比词缺乏主动测量。",
+        "impact": "无法证明在核心转化词上的 AI 可见性，证据链存在盲区。"
+      },
+      {
+        "finding_id": "FND-BC-002",
+        "category": "Recommendation Gap",
+        "severity": "HIGH",
+        "statement": "2 个 query 被 Bing AI 引用但 citation share <10%（recommendation_level=1），未达推荐级",
+        "evidence": "低占比示例：djvu to pdf, epub to mobi converter free",
+        "reason": "内容被引用但不被推荐；缺乏结构化推荐信号（对比表/推荐清单/权威背书）。",
+        "impact": "流失高意图流量；在 AI 答案中仅『被提及』而非『被推荐』。"
+      },
+      {
+        "finding_id": "FND-BC-003",
+        "category": "Comparison Gap",
+        "severity": "MEDIUM",
+        "statement": "缺『bookconv vs calibre / alternatives』对比内容；Calibre 在 AI 答案中占据主导地位",
+        "evidence": "query set 含 bookconv vs calibre / alternatives，但基线无对应对比页观测",
+        "reason": "用户在 AI 中常问『X 的替代/对比』，缺少该内容则 AI 默认推荐竞品（Calibre）。",
+        "impact": "高端转化词被竞品吸走，品牌失去『推荐位』。"
+      },
+      {
+        "finding_id": "FND-BC-004",
+        "category": "Trust Gap",
+        "severity": "MEDIUM",
+        "statement": "Bing AI 引用以品牌自有页（type A）为主，缺权威/媒体/社区背书（B/C/D）",
+        "evidence": "被引用页 top: best-ebook-reader-apps(djvu to pdf)",
+        "reason": "AI 更倾向引用被多源背书的实体；当前 citation 集中在自有博客。",
+        "impact": "可信度信号单一，长期压制 recommendation_level 提升。"
+      },
+      {
+        "finding_id": "FND-BC-005",
+        "category": "Entity Gap",
+        "severity": "LOW",
+        "statement": "品牌实体信息（公司/团队/成立背景）在 AI 答案中信号弱",
+        "evidence": "baseline 无实体类 observation；About/品牌故事页未被 AI 引用观测到",
+        "reason": "实体信号不足，AI 难以将 bookconv 识别为稳定可信实体。",
+        "impact": "影响长期 E-E-A-T 与推荐权重。"
+      }
+    ],
+    "interventions": [
+      {
+        "intervention_id": "INT-BC-02",
+        "finding_id": "FND-BC-002",
+        "case_id": "CASE-001",
+        "type": "faq",
+        "title": "Recommendation Gap",
+        "description": "新增『为什么选 BookConv / BookConv 与其他转换器区别』FAQ 与推荐清单",
+        "target": "/faq",
+        "impact": 5,
+        "effort": 2,
+        "confidence": 0.8,
+        "priority_score": 2.0,
+        "priority": 1,
+        "status": "proposed"
+      },
+      {
+        "intervention_id": "INT-BC-03",
+        "finding_id": "FND-BC-003",
+        "case_id": "CASE-001",
+        "type": "comparison",
+        "title": "Comparison Gap",
+        "description": "新增 bookconv vs calibre / alternatives 对比页（含客观参数表）",
+        "target": "/compare/bookconv-vs-calibre",
+        "impact": 5,
+        "effort": 3,
+        "confidence": 0.85,
+        "priority_score": 1.417,
+        "priority": 2,
+        "status": "proposed"
+      },
+      {
+        "intervention_id": "INT-BC-01",
+        "finding_id": "FND-BC-001",
+        "case_id": "CASE-001",
+        "type": "content",
+        "title": "Coverage Gap",
+        "description": "补全品类/对比类落地页并主动纳入测量 query set",
+        "target": "/guides, /compare",
+        "impact": 4,
+        "effort": 3,
+        "confidence": 0.7,
+        "priority_score": 0.933,
+        "priority": 3,
+        "status": "proposed"
+      },
+      {
+        "intervention_id": "INT-BC-05",
+        "finding_id": "FND-BC-005",
+        "case_id": "CASE-001",
+        "type": "entity",
+        "title": "Entity Gap",
+        "description": "强化 About / 品牌故事页实体信息（团队、成立背景、合规）",
+        "target": "/about",
+        "impact": 3,
+        "effort": 2,
+        "confidence": 0.6,
+        "priority_score": 0.9,
+        "priority": 4,
+        "status": "proposed"
+      },
+      {
+        "intervention_id": "INT-BC-04",
+        "finding_id": "FND-BC-004",
+        "case_id": "CASE-001",
+        "type": "trust",
+        "title": "Trust Gap",
+        "description": "补充案例、媒体评测引用、用户证言等可信信号",
+        "target": "/why-bookconv, testimonials",
+        "impact": 4,
+        "effort": 3,
+        "confidence": 0.6,
+        "priority_score": 0.8,
+        "priority": 5,
+        "status": "proposed"
+      }
+    ]
+  },
+  "CASE-002": {
+    "client": "OSTRICH Ink",
+    "industry": "fountain_pen_ink",
+    "baseline_metrics": {
+      "case_id": "CASE-002",
+      "version": "baseline",
+      "query_count": 46,
+      "mention_rate": 100.0,
+      "citation_rate": 0.0,
+      "recommendation_rate": 23.91,
+      "query_coverage": 153.33,
+      "avg_recommendation_level": 1.37,
+      "competitor_count": 0,
+      "captured_at": "2026-09-14T07:34:36.478237"
+    },
+    "findings": [
+      {
+        "finding_id": "FND-OST-001",
+        "category": "Coverage Gap",
+        "severity": "HIGH",
+        "statement": "仅采集传统搜索（GSC）可见性，AI 引擎可见性（ChatGPT/Perplexity/Bing AI）未测量",
+        "evidence": "数据来源=Google Search Console 导出；无 AI citation 数据",
+        "reason": "GEO 核心是 AI 答案可见性；对照组缺失 AI 测量维度。",
+        "impact": "无法在 AI 渠道与 BookConv 做同维度对比，证据链不完整。"
+      },
+      {
+        "finding_id": "FND-OST-002",
+        "category": "Trust Gap",
+        "severity": "HIGH",
+        "statement": "42/46 个 query 零点击，传统搜索转化极弱",
+        "evidence": "GSC: 多数品类词 0 点击、排名 >30",
+        "reason": "内容覆盖薄、可信信号缺，用户不点击。",
+        "impact": "传统搜索流量无法支撑商业验证。"
+      },
+      {
+        "finding_id": "FND-OST-003",
+        "category": "Entity Gap",
+        "severity": "MEDIUM",
+        "statement": "品牌词『ostrich ink』排名 2.11 但疑似来自 Knowledge Panel/代理站，非官网自然排名",
+        "evidence": "GSC 报告审计：排名来源未验证，新站+ishoptop 代理",
+        "reason": "官网实体权威未建立。",
+        "impact": "品牌词『虚高』，真实官网可见性可能第 10 名外。"
+      },
+      {
+        "finding_id": "FND-OST-004",
+        "category": "Comparison Gap",
+        "severity": "MEDIUM",
+        "statement": "缺与竞品（其他钢笔墨水品牌）对比内容",
+        "evidence": "query set 含 ostrich ink vs other brands / best chinese ink brand，无对应页",
+        "reason": "AI 对比类 query 无内容承接。",
+        "impact": "高意图对比词流量流失。"
+      },
+      {
+        "finding_id": "FND-OST-005",
+        "category": "Recommendation Gap",
+        "severity": "MEDIUM",
+        "statement": "无 AI 推荐信号（未测量）；传统搜索亦无推荐位",
+        "evidence": "GSC 无 position<=3 的高价值词",
+        "reason": "缺乏结构化推荐与背书内容。",
+        "impact": "双渠道均未被推荐。"
+      }
+    ],
+    "interventions": [
+      {
+        "intervention_id": "INT-OST-01",
+        "finding_id": "FND-OST-001",
+        "case_id": "CASE-002",
+        "type": "content",
+        "title": "Coverage Gap",
+        "description": "接入 AI 引擎测量（ChatGPT/Perplexity/Bing AI），补齐 GEO 维度",
+        "target": "measurement",
+        "impact": 5,
+        "effort": 2,
+        "confidence": 0.7,
+        "priority_score": 1.75,
+        "priority": 1,
+        "status": "proposed"
+      },
+      {
+        "intervention_id": "INT-OST-03",
+        "finding_id": "FND-OST-003",
+        "case_id": "CASE-002",
+        "type": "entity",
+        "title": "Entity Gap",
+        "description": "建立官网实体权威（About/品牌故事/结构化数据）",
+        "target": "/about",
+        "impact": 4,
+        "effort": 3,
+        "confidence": 0.6,
+        "priority_score": 0.8,
+        "priority": 2,
+        "status": "proposed"
+      },
+      {
+        "intervention_id": "INT-OST-04",
+        "finding_id": "FND-OST-004",
+        "case_id": "CASE-002",
+        "type": "comparison",
+        "title": "Comparison Gap",
+        "description": "新增与其他钢笔墨水品牌对比页",
+        "target": "/compare",
+        "impact": 3,
+        "effort": 3,
+        "confidence": 0.6,
+        "priority_score": 0.6,
+        "priority": 3,
+        "status": "proposed"
+      },
+      {
+        "intervention_id": "INT-OST-02",
+        "finding_id": "FND-OST-002",
+        "case_id": "CASE-002",
+        "type": "trust",
+        "title": "Trust Gap",
+        "description": "扩充品类内容覆盖与可信信号，提升传统搜索点击",
+        "target": "/blog, /guides",
+        "impact": 4,
+        "effort": 4,
+        "confidence": 0.5,
+        "priority_score": 0.5,
+        "priority": 4,
+        "status": "proposed"
+      },
+      {
+        "intervention_id": "INT-OST-05",
+        "finding_id": "FND-OST-005",
+        "case_id": "CASE-002",
+        "type": "faq",
+        "title": "Recommendation Gap",
+        "description": "新增 FAQ 与推荐清单，争夺推荐位",
+        "target": "/faq",
+        "impact": 3,
+        "effort": 3,
+        "confidence": 0.5,
+        "priority_score": 0.5,
+        "priority": 5,
+        "status": "proposed"
+      }
+    ]
+  }
+}

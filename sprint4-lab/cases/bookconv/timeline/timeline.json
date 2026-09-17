@@ -1,0 +1,325 @@
+[
+  {
+    "day": "Day0",
+    "date": "2026-09-13",
+    "metrics": {
+      "case_id": "CASE-001",
+      "version": "Day0",
+      "query_count": 15,
+      "mention_rate": 100.0,
+      "citation_rate": 100.0,
+      "recommendation_rate": 86.67,
+      "query_coverage": 38.46,
+      "avg_recommendation_level": 2.133,
+      "competitor_count": 0,
+      "captured_at": "2026-09-14T07:53:48.214470",
+      "visibility_score": 94.7
+    },
+    "per_query": [
+      {
+        "query": "bookconv",
+        "category": "Brand",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "bookconv ebook converter",
+        "category": "Brand",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "bookconv review",
+        "category": "Brand",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "bookconv alternative",
+        "category": "Brand",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "is bookconv safe",
+        "category": "Brand",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "bookconv free",
+        "category": "Brand",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "bookconv vs calibre",
+        "category": "Brand",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "bookconv login",
+        "category": "Brand",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "convert epub to pdf",
+        "category": "Problem",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "convert mobi to epub",
+        "category": "Problem",
+        "status": "COVERED",
+        "recommendation_level": 2,
+        "share": "Bing AI cited BookConv 67 times (20.06% share)"
+      },
+      {
+        "query": "epub to kindle",
+        "category": "Problem",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "azw3 to epub",
+        "category": "Problem",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "convert pdf to epub",
+        "category": "Problem",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "djvu to pdf",
+        "category": "Problem",
+        "status": "WEAK",
+        "recommendation_level": 1,
+        "share": "Bing AI cited BookConv 250 times (3.97% share)"
+      },
+      {
+        "query": "best ebook converter",
+        "category": "Problem",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "free ebook converter",
+        "category": "Problem",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "ebook conversion software",
+        "category": "Problem",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "convert ebook to pdf",
+        "category": "Problem",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "mobi to epub converter free",
+        "category": "Problem",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "convert epub to azw3",
+        "category": "Problem",
+        "status": "COVERED",
+        "recommendation_level": 2,
+        "share": "Bing AI cited BookConv 60 times (28.30% share)"
+      },
+      {
+        "query": "kindle to pdf",
+        "category": "Problem",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "epub to mobi converter free",
+        "category": "Problem",
+        "status": "WEAK",
+        "recommendation_level": 1,
+        "share": "Bing AI cited BookConv 38 times (9.77% share)"
+      },
+      {
+        "query": "ai ebook tools",
+        "category": "Category",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "ebook converter software",
+        "category": "Category",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "ebook format converter",
+        "category": "Category",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "online ebook converter",
+        "category": "Category",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "ebook reader app",
+        "category": "Category",
+        "status": "COVERED",
+        "recommendation_level": 2,
+        "share": "Bing AI cited BookConv 84 times (12.59% share)"
+      },
+      {
+        "query": "ebook syncing services",
+        "category": "Category",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "what format does kindle use",
+        "category": "Category",
+        "status": "COVERED",
+        "recommendation_level": 2,
+        "share": "Bing AI cited BookConv 45 times (39.13% share)"
+      },
+      {
+        "query": "kindle formats explained",
+        "category": "Category",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "LOW"
+      },
+      {
+        "query": "transfer ebooks between devices",
+        "category": "Category",
+        "status": "COVERED",
+        "recommendation_level": 3,
+        "share": "Bing AI cited BookConv 74 times (46.54% share)"
+      },
+      {
+        "query": "best free epub reader",
+        "category": "Category",
+        "status": "COVERED",
+        "recommendation_level": 2,
+        "share": "Bing AI cited BookConv 37 times (14.80% share)"
+      },
+      {
+        "query": "Harry Potter digital books multiple devices",
+        "category": "Category",
+        "status": "COVERED",
+        "recommendation_level": 3,
+        "share": "Bing AI cited BookConv 36 times (50.00% share)"
+      },
+      {
+        "query": "bookconv alternatives",
+        "category": "Comparison",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "HIGH"
+      },
+      {
+        "query": "calibre alternative",
+        "category": "Comparison",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "HIGH"
+      },
+      {
+        "query": "best calibre alternative",
+        "category": "Comparison",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "HIGH"
+      },
+      {
+        "query": "convert epub to azw3 vs mobi",
+        "category": "Comparison",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "HIGH"
+      },
+      {
+        "query": "bookconv vs zamzar",
+        "category": "Comparison",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "HIGH"
+      },
+      {
+        "query": "online converter vs desktop",
+        "category": "Comparison",
+        "status": "MISSING",
+        "recommendation_level": 0,
+        "share": "",
+        "competitor_risk": "HIGH"
+      }
+    ],
+    "query_coverage_strict": 23.08
+  }
+]

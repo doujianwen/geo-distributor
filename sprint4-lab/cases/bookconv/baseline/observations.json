@@ -1,0 +1,437 @@
+[
+  {
+    "observation_id": "obs_bing_36496464",
+    "prompt_id": 36496464,
+    "engine": "bing_ai",
+    "timestamp": "2026-09-13",
+    "prompt_text": "djvu to pdf",
+    "answer_raw": "",
+    "answer_clean": "",
+    "answer_char_count": 0,
+    "extraction_method": "bing_ai_performance_export",
+    "validation_status": "PASS",
+    "brand": "BookConv",
+    "brand_mentioned": true,
+    "brand_status": "MENTIONED",
+    "first_mention_position": null,
+    "recommendation_level": 1,
+    "recommendation_rank": null,
+    "recommendation_evidence": "Bing AI cited BookConv 250 times (3.97% share)",
+    "competitors": [],
+    "citations": [
+      {
+        "text": "BookConv cited (3.97%)",
+        "url": "",
+        "type": "brand"
+      }
+    ],
+    "citations_status": "extracted",
+    "status": "success"
+  },
+  {
+    "observation_id": "obs_bing_82442337",
+    "prompt_id": 82442337,
+    "engine": "bing_ai",
+    "timestamp": "2026-09-13",
+    "prompt_text": "ebook reader app",
+    "answer_raw": "",
+    "answer_clean": "",
+    "answer_char_count": 0,
+    "extraction_method": "bing_ai_performance_export",
+    "validation_status": "PASS",
+    "brand": "BookConv",
+    "brand_mentioned": true,
+    "brand_status": "MENTIONED",
+    "first_mention_position": null,
+    "recommendation_level": 2,
+    "recommendation_rank": null,
+    "recommendation_evidence": "Bing AI cited BookConv 84 times (12.59% share)",
+    "competitors": [],
+    "citations": [
+      {
+        "text": "BookConv cited (12.59%)",
+        "url": "",
+        "type": "brand"
+      }
+    ],
+    "citations_status": "extracted",
+    "status": "success"
+  },
+  {
+    "observation_id": "obs_bing_87703690",
+    "prompt_id": 87703690,
+    "engine": "bing_ai",
+    "timestamp": "2026-09-13",
+    "prompt_text": "transfer ebooks between devices",
+    "answer_raw": "",
+    "answer_clean": "",
+    "answer_char_count": 0,
+    "extraction_method": "bing_ai_performance_export",
+    "validation_status": "PASS",
+    "brand": "BookConv",
+    "brand_mentioned": true,
+    "brand_status": "MENTIONED",
+    "first_mention_position": null,
+    "recommendation_level": 3,
+    "recommendation_rank": null,
+    "recommendation_evidence": "Bing AI cited BookConv 74 times (46.54% share)",
+    "competitors": [],
+    "citations": [
+      {
+        "text": "BookConv cited (46.54%)",
+        "url": "",
+        "type": "brand"
+      }
+    ],
+    "citations_status": "extracted",
+    "status": "success"
+  },
+  {
+    "observation_id": "obs_bing_97239363",
+    "prompt_id": 97239363,
+    "engine": "bing_ai",
+    "timestamp": "2026-09-13",
+    "prompt_text": "mobi to epub",
+    "answer_raw": "",
+    "answer_clean": "",
+    "answer_char_count": 0,
+    "extraction_method": "bing_ai_performance_export",
+    "validation_status": "PASS",
+    "brand": "BookConv",
+    "brand_mentioned": true,
+    "brand_status": "MENTIONED",
+    "first_mention_position": null,
+    "recommendation_level": 2,
+    "recommendation_rank": null,
+    "recommendation_evidence": "Bing AI cited BookConv 70 times (10.31% share)",
+    "competitors": [],
+    "citations": [
+      {
+        "text": "BookConv cited (10.31%)",
+        "url": "",
+        "type": "brand"
+      }
+    ],
+    "citations_status": "extracted",
+    "status": "success"
+  },
+  {
+    "observation_id": "obs_bing_09950942",
+    "prompt_id": 9950942,
+    "engine": "bing_ai",
+    "timestamp": "2026-09-13",
+    "prompt_text": "convert mobi to epub",
+    "answer_raw": "",
+    "answer_clean": "",
+    "answer_char_count": 0,
+    "extraction_method": "bing_ai_performance_export",
+    "validation_status": "PASS",
+    "brand": "BookConv",
+    "brand_mentioned": true,
+    "brand_status": "MENTIONED",
+    "first_mention_position": null,
+    "recommendation_level": 2,
+    "recommendation_rank": null,
+    "recommendation_evidence": "Bing AI cited BookConv 67 times (20.06% share)",
+    "competitors": [],
+    "citations": [
+      {
+        "text": "BookConv cited (20.06%)",
+        "url": "",
+        "type": "brand"
+      }
+    ],
+    "citations_status": "extracted",
+    "status": "success"
+  },
+  {
+    "observation_id": "obs_bing_16514780",
+    "prompt_id": 16514780,
+    "engine": "bing_ai",
+    "timestamp": "2026-09-13",
+    "prompt_text": "convert epub to azw3",
+    "answer_raw": "",
+    "answer_clean": "",
+    "answer_char_count": 0,
+    "extraction_method": "bing_ai_performance_export",
+    "validation_status": "PASS",
+    "brand": "BookConv",
+    "brand_mentioned": true,
+    "brand_status": "MENTIONED",
+    "first_mention_position": null,
+    "recommendation_level": 2,
+    "recommendation_rank": null,
+    "recommendation_evidence": "Bing AI cited BookConv 60 times (28.30% share)",
+    "competitors": [],
+    "citations": [
+      {
+        "text": "BookConv cited (28.30%)",
+        "url": "",
+        "type": "brand"
+      }
+    ],
+    "citations_status": "extracted",
+    "status": "success"
+  },
+  {
+    "observation_id": "obs_bing_26535671",
+    "prompt_id": 26535671,
+    "engine": "bing_ai",
+    "timestamp": "2026-09-13",
+    "prompt_text": "what format does kindle use",
+    "answer_raw": "",
+    "answer_clean": "",
+    "answer_char_count": 0,
+    "extraction_method": "bing_ai_performance_export",
+    "validation_status": "PASS",
+    "brand": "BookConv",
+    "brand_mentioned": true,
+    "brand_status": "MENTIONED",
+    "first_mention_position": null,
+    "recommendation_level": 2,
+    "recommendation_rank": null,
+    "recommendation_evidence": "Bing AI cited BookConv 45 times (39.13% share)",
+    "competitors": [],
+    "citations": [
+      {
+        "text": "BookConv cited (39.13%)",
+        "url": "",
+        "type": "brand"
+      }
+    ],
+    "citations_status": "extracted",
+    "status": "success"
+  },
+  {
+    "observation_id": "obs_bing_95247809",
+    "prompt_id": 95247809,
+    "engine": "bing_ai",
+    "timestamp": "2026-09-13",
+    "prompt_text": "free reader apps platforms discover new content resources",
+    "answer_raw": "",
+    "answer_clean": "",
+    "answer_char_count": 0,
+    "extraction_method": "bing_ai_performance_export",
+    "validation_status": "PASS",
+    "brand": "BookConv",
+    "brand_mentioned": true,
+    "brand_status": "MENTIONED",
+    "first_mention_position": null,
+    "recommendation_level": 2,
+    "recommendation_rank": null,
+    "recommendation_evidence": "Bing AI cited BookConv 41 times (25.62% share)",
+    "competitors": [],
+    "citations": [
+      {
+        "text": "BookConv cited (25.62%)",
+        "url": "",
+        "type": "brand"
+      }
+    ],
+    "citations_status": "extracted",
+    "status": "success"
+  },
+  {
+    "observation_id": "obs_bing_78880755",
+    "prompt_id": 78880755,
+    "engine": "bing_ai",
+    "timestamp": "2026-09-13",
+    "prompt_text": "epub to mobi converter free",
+    "answer_raw": "",
+    "answer_clean": "",
+    "answer_char_count": 0,
+    "extraction_method": "bing_ai_performance_export",
+    "validation_status": "PASS",
+    "brand": "BookConv",
+    "brand_mentioned": true,
+    "brand_status": "MENTIONED",
+    "first_mention_position": null,
+    "recommendation_level": 1,
+    "recommendation_rank": null,
+    "recommendation_evidence": "Bing AI cited BookConv 38 times (9.77% share)",
+    "competitors": [],
+    "citations": [
+      {
+        "text": "BookConv cited (9.77%)",
+        "url": "",
+        "type": "brand"
+      }
+    ],
+    "citations_status": "extracted",
+    "status": "success"
+  },
+  {
+    "observation_id": "obs_bing_34551595",
+    "prompt_id": 34551595,
+    "engine": "bing_ai",
+    "timestamp": "2026-09-13",
+    "prompt_text": "best free epub reader",
+    "answer_raw": "",
+    "answer_clean": "",
+    "answer_char_count": 0,
+    "extraction_method": "bing_ai_performance_export",
+    "validation_status": "PASS",
+    "brand": "BookConv",
+    "brand_mentioned": true,
+    "brand_status": "MENTIONED",
+    "first_mention_position": null,
+    "recommendation_level": 2,
+    "recommendation_rank": null,
+    "recommendation_evidence": "Bing AI cited BookConv 37 times (14.80% share)",
+    "competitors": [],
+    "citations": [
+      {
+        "text": "BookConv cited (14.80%)",
+        "url": "",
+        "type": "brand"
+      }
+    ],
+    "citations_status": "extracted",
+    "status": "success"
+  },
+  {
+    "observation_id": "obs_bing_90090749",
+    "prompt_id": 90090749,
+    "engine": "bing_ai",
+    "timestamp": "2026-09-13",
+    "prompt_text": "Harry Potter digital books multiple devices",
+    "answer_raw": "",
+    "answer_clean": "",
+    "answer_char_count": 0,
+    "extraction_method": "bing_ai_performance_export",
+    "validation_status": "PASS",
+    "brand": "BookConv",
+    "brand_mentioned": true,
+    "brand_status": "MENTIONED",
+    "first_mention_position": null,
+    "recommendation_level": 3,
+    "recommendation_rank": null,
+    "recommendation_evidence": "Bing AI cited BookConv 36 times (50.00% share)",
+    "competitors": [],
+    "citations": [
+      {
+        "text": "BookConv cited (50.00%)",
+        "url": "",
+        "type": "brand"
+      }
+    ],
+    "citations_status": "extracted",
+    "status": "success"
+  },
+  {
+    "observation_id": "obs_bing_57797616",
+    "prompt_id": 57797616,
+    "engine": "bing_ai",
+    "timestamp": "2026-09-13",
+    "prompt_text": "Kindle AZW vs MOBI formats explained",
+    "answer_raw": "",
+    "answer_clean": "",
+    "answer_char_count": 0,
+    "extraction_method": "bing_ai_performance_export",
+    "validation_status": "PASS",
+    "brand": "BookConv",
+    "brand_mentioned": true,
+    "brand_status": "MENTIONED",
+    "first_mention_position": null,
+    "recommendation_level": 3,
+    "recommendation_rank": null,
+    "recommendation_evidence": "Bing AI cited BookConv 34 times (65.38% share)",
+    "competitors": [],
+    "citations": [
+      {
+        "text": "BookConv cited (65.38%)",
+        "url": "",
+        "type": "brand"
+      }
+    ],
+    "citations_status": "extracted",
+    "status": "success"
+  },
+  {
+    "observation_id": "obs_bing_69522263",
+    "prompt_id": 69522263,
+    "engine": "bing_ai",
+    "timestamp": "2026-09-13",
+    "prompt_text": "convertir a mobi",
+    "answer_raw": "",
+    "answer_clean": "",
+    "answer_char_count": 0,
+    "extraction_method": "bing_ai_performance_export",
+    "validation_status": "PASS",
+    "brand": "BookConv",
+    "brand_mentioned": true,
+    "brand_status": "MENTIONED",
+    "first_mention_position": null,
+    "recommendation_level": 2,
+    "recommendation_rank": null,
+    "recommendation_evidence": "Bing AI cited BookConv 32 times (28.32% share)",
+    "competitors": [],
+    "citations": [
+      {
+        "text": "BookConv cited (28.32%)",
+        "url": "",
+        "type": "brand"
+      }
+    ],
+    "citations_status": "extracted",
+    "status": "success"
+  },
+  {
+    "observation_id": "obs_bing_40578137",
+    "prompt_id": 40578137,
+    "engine": "bing_ai",
+    "timestamp": "2026-09-13",
+    "prompt_text": "ebook syncing services for virtual reading groups",
+    "answer_raw": "",
+    "answer_clean": "",
+    "answer_char_count": 0,
+    "extraction_method": "bing_ai_performance_export",
+    "validation_status": "PASS",
+    "brand": "BookConv",
+    "brand_mentioned": true,
+    "brand_status": "MENTIONED",
+    "first_mention_position": null,
+    "recommendation_level": 2,
+    "recommendation_rank": null,
+    "recommendation_evidence": "Bing AI cited BookConv 31 times (32.29% share)",
+    "competitors": [],
+    "citations": [
+      {
+        "text": "BookConv cited (32.29%)",
+        "url": "",
+        "type": "brand"
+      }
+    ],
+    "citations_status": "extracted",
+    "status": "success"
+  },
+  {
+    "observation_id": "obs_bing_53921667",
+    "prompt_id": 53921667,
+    "engine": "bing_ai",
+    "timestamp": "2026-09-13",
+    "prompt_text": "ebook apps sync reading progress across devices",
+    "answer_raw": "",
+    "answer_clean": "",
+    "answer_char_count": 0,
+    "extraction_method": "bing_ai_performance_export",
+    "validation_status": "PASS",
+    "brand": "BookConv",
+    "brand_mentioned": true,
+    "brand_status": "MENTIONED",
+    "first_mention_position": null,
+    "recommendation_level": 3,
+    "recommendation_rank": null,
+    "recommendation_evidence": "Bing AI cited BookConv 31 times (40.26% share)",
+    "competitors": [],
+    "citations": [
+      {
+        "text": "BookConv cited (40.26%)",
+        "url": "",
+        "type": "brand"
+      }
+    ],
+    "citations_status": "extracted",
+    "status": "success"
+  }
+]

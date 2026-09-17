@@ -1,0 +1,56 @@
+# geo-distributor 引擎配置
+# 与 geo-collector/config/engines.yaml 保持一致
+# 如需独立覆盖，可在下方添加同名 engine key
+
+engines:
+  chatgpt:
+    name: "ChatGPT"
+    url: "https://chatgpt.com"
+    wait_for_response_selector: '[data-message-author-role="assistant"] .markdown, [data-message-author-role="assistant"]'
+    generating_indicator_selector: 'button[aria-label="Stop answering"]'
+    stable_polls_required: 3
+    poll_interval_seconds: 1.0
+    start_timeout_seconds: 30
+    prompt_input_selector: "[contenteditable=\"true\"], .prompt-input, [class*=\"input\"], textarea"
+    send_key_selector: "button[type=\"submit\"], [data-testid=\"send-button\"]"
+    max_wait_seconds: 120
+    headless: false
+    profile_dir: "chatgpt"
+
+  perplexity:
+    name: "Perplexity"
+    url: "https://www.perplexity.ai"
+    wait_for_response_selector: "[data-testid=\"answer\"], .answer"
+    answer_selectors: "[data-testid=\"answer\"], .answer"
+    generating_indicator_selector: "button[aria-label*=\"Stop\"]"
+    prompt_input_selector: "[data-testid=\"query-input\"], textarea"
+    send_key_selector: "button[data-testid=\"send-button\"]"
+    max_wait_seconds: 90
+    headless: false
+    profile_dir: "perplexity"
+    use_real_chrome_profile: true
+    real_chrome_user_data: "E:/GEO项目/技术层/geo-collector/profiles/chrome_login_copy"
+
+  gemini:
+    name: "Gemini"
+    url: "https://gemini.google.com"
+    wait_for_response_selector: '[class*="model-response"], [data-testid="response"]'
+    answer_selectors: "message-content, .model-response-text, [data-testid=\"response\"]"
+    generating_indicator_selector: "button[aria-label*=\"Stop\"]"
+    prompt_input_selector: 'textarea[placeholder*="Message"], [contenteditable="true"]'
+    send_key_selector: 'button[aria-label*="Send"], button[data-testid="send"]'
+    max_wait_seconds: 60
+    headless: false
+    profile_dir: "gemini"
+    use_real_chrome_profile: true
+    real_chrome_user_data: "E:/GEO项目/技术层/geo-collector/profiles/chrome_login_copy"
+
+  google_ai:
+    name: "Google AI Studio"
+    url: "https://aistudio.google.com"
+    wait_for_response_selector: '[class*="output"], [data-testid="response"]'
+    prompt_input_selector: 'textarea, [contenteditable="true"]'
+    send_key_selector: 'button[aria-label*="Run"], button[type="submit"]'
+    max_wait_seconds: 60
+    headless: false
+    profile_dir: "google_ai"

@@ -1,0 +1,75 @@
+# geo-distributor 配置
+
+# 商业产品基础设置
+brand: "Hydroviv"
+brand_aliases:
+  - "Hydroviv"
+  - "Hydroviv Water"
+  - "Hydroviv filter"
+  - "Hydroviv filters"
+
+recommendation_keywords:
+  - "recommend"
+  - "best choice"
+  - "good choice"
+  - "I would choose"
+  - "you should go with"
+  - "top pick"
+  - "highly recommend"
+  - "ideal for"
+
+# 竞品字典（与 geo-collector 保持一致）
+competitor_dictionary:
+  water_filters:
+    - "Hydroviv"
+    - "Aquasana"
+    - "Brita"
+    - "PUR"
+    - "Clearly Filtered"
+    - "Waterdrop"
+    - "Culligan"
+    - "iSpring"
+    - "Aquagear"
+    - "NSF Certified"
+
+# 数据库
+db_path: "geo_distributor.db"
+
+# 路径
+screenshots_dir: "screenshots"
+raw_dir: "raw"
+reports_dir: "reports"
+errors_dir: "errors"
+profiles_dir: "profiles"
+prompts_file: "prompts/hydroviv_20.csv"
+
+# Browser（沿用 geo-collector 配置）
+default_timeout_ms: 30000
+page_load_timeout_ms: 30000
+proxy: "http://127.0.0.1:12450"
+
+# 分销系统特有配置
+distributor:
+  # 是否启用 Elmo Adapter（待 A1.6 验证后决定）
+  use_elmo_adapter: false
+  # 采集引擎（与 geo-collector 共用）
+  engines:
+    - "chatgpt"
+    - "perplexity"
+    - "gemini"
+    - "google_ai"
+  # 采集输出目录（可独立于 geo-collector）
+  output_root: "."
+
+# Elmo REST API 配置（V0.4 — A1.7）
+elmo:
+  enabled: true
+  base_url: "http://localhost:1515"
+  api_key: "5vGAUQo58wjhLiXp43bV3lvgIhF/AnIk6WxtREjevn4="
+  version: "v0.3.0"
+  timeout_seconds: 30
+  max_retries: 2
+  providers:
+    - openai-api
+    - anthropic-api
+    - perplexity

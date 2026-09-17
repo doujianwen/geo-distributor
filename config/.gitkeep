@@ -1,0 +1,8 @@
+# geo-distributor 配置
+
+[project root]
+    ├── geo_distributor/         # Python package
+    ├── config/                  # 此目录
+    ├── tests/
+    ├── logs/
+    └── exports/

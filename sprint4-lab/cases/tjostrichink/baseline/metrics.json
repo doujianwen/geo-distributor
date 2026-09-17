@@ -1,0 +1,12 @@
+{
+  "case_id": "CASE-002",
+  "version": "baseline",
+  "query_count": 46,
+  "mention_rate": 100.0,
+  "citation_rate": 0.0,
+  "recommendation_rate": 23.91,
+  "query_coverage": 153.33,
+  "avg_recommendation_level": 1.37,
+  "competitor_count": 0,
+  "captured_at": "2026-09-14T07:34:36.478237"
+}
