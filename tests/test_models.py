@@ -7,8 +7,8 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from geo_distributor.models import (
-    Organization, Account, Brand, Project, Run, Report,
-    OrganizationStatus, ProjectStatus, BrandTarget,
+    Organization, Account, Brand, CollectionProject, Run, CollectionReport,
+    OrganizationStatus, CollectionProjectStatus, BrandTarget,
 )
 
 
@@ -32,7 +32,7 @@ def test_brand_with_aliases():
 
 
 def test_project_default_status():
-    project = Project(
+    project = CollectionProject(
         project_id="p1",
         org_id="org_001",
         brand_id="b1",
@@ -40,7 +40,7 @@ def test_project_default_status():
         prompts_file="prompts/hydroviv_20.csv",
         engines=["chatgpt", "perplexity"],
     )
-    assert project.status == ProjectStatus.DRAFT
+    assert project.status == CollectionProjectStatus.DRAFT
     assert project.schedule_cron == ""
 
 
@@ -54,7 +54,7 @@ def test_run_status_flow():
 
 
 def test_report_with_stats():
-    report = Report(
+    report = CollectionReport(
         report_id="rep1",
         project_id="p1",
         total_observations=33,

@@ -1,0 +1,72 @@
+[
+  {
+    "prompt_id": 1,
+    "text": "What water filter should I buy based on my local water quality?",
+    "category": "",
+    "intent": "recommendation",
+    "location": ""
+  },
+  {
+    "prompt_id": 5,
+    "text": "If you were choosing a water filter based on local water quality, what would you recommend?",
+    "category": "",
+    "intent": "recommendation",
+    "location": ""
+  },
+  {
+    "prompt_id": 9,
+    "text": "I need a water filter that removes PFAS. Which one should I choose?",
+    "category": "",
+    "intent": "product",
+    "location": ""
+  },
+  {
+    "prompt_id": 13,
+    "text": "Which water filter is worth buying in 2026?",
+    "category": "",
+    "intent": "high_intent",
+    "location": ""
+  },
+  {
+    "prompt_id": 17,
+    "text": "Which filter would you recommend for my local water quality?",
+    "category": "",
+    "intent": "local",
+    "location": ""
+  },
+  {
+    "prompt_id": 101,
+    "text": "What is Hydroviv, and what kind of water filtration products does it offer?",
+    "category": "ct1_brand_probe",
+    "intent": "identifiability_test",
+    "location": ""
+  },
+  {
+    "prompt_id": 105,
+    "text": "What are the main strengths and limitations of Hydroviv compared with other residential water filtration brands?",
+    "category": "a_cross_model_brand_probe",
+    "intent": "cross_model_identifiability",
+    "location": ""
+  },
+  {
+    "prompt_id": 109,
+    "text": "What are five residential water filtration brands that are relevant to PFAS and under-sink filtration, and what is each known for?",
+    "category": "a25_spontaneous_surfacing",
+    "intent": "candidate_generation_diagnostic",
+    "location": ""
+  },
+  {
+    "prompt_id": 113,
+    "text": "I have PFAS in my water and want to buy a residential water filter. Which one would you recommend?",
+    "category": "a31_decision_wording",
+    "intent": "decision_stage_framing_validation",
+    "location": ""
+  },
+  {
+    "prompt_id": 117,
+    "text": "Which residential water filtration brands are worth considering for PFAS removal, and what distinguishes them?",
+    "category": "a40_query_regime",
+    "intent": "query_regime_sensitivity_mapping",
+    "location": ""
+  }
+]

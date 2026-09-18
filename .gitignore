@@ -19,3 +19,18 @@ htmlcov/
 .tox/
 .mypy_cache/
 .ruff_cache/
+
+# --- 运行时数据：SQLite 持久化库（P0-5）---
+# 进程运行产生，不应入库；库文件路径由 GEO_DISTRIBUTOR_DB 指定
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# --- 采集 / 同步 / 验证产出 ---
+exports/
+screenshots/
+
+# --- 本地覆盖配置（密钥等，见 .env.example）---
+.env.local
+config/settings.local.yaml

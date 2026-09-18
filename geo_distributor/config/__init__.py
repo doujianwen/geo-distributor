@@ -7,9 +7,10 @@
 """
 
 import os
+import re
 import sys
 from functools import lru_cache
-from typing import Optional
+from typing import Any, Optional
 
 import yaml
 
@@ -36,9 +37,77 @@ def get_geo_collector_root() -> str:
     return _GEO_COLLECTOR_ROOT
 
 
+# ${VAR_NAME} 占位符：配置里出现即由同名环境变量注入
+_ENV_PLACEHOLDER = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def _expand_env(node: Any) -> Any:
+    """递归展开配置里的 ${ENV_VAR} 占位符。
+
+    未设置的环境变量展开为空字符串——调用方应在读取处做存在性校验，
+    而不是让 KeyError 在深层代码里冒出来。
+    """
+    if isinstance(node, str):
+        return _ENV_PLACEHOLDER.sub(lambda m: os.environ.get(m.group(1), ""), node)
+    if isinstance(node, dict):
+        return {k: _expand_env(v) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_expand_env(v) for v in node]
+    return node
+
+
+# 疑似硬编码密钥：足够长且字符集像 base64/hex 的无空格串
+_SECRET_LIKE = re.compile(r"^[A-Za-z0-9+/=_-]{20,}$")
+
+# 这些 key 出现长字符串是正常的（路径、UA、模型名），不告警
+_SECRET_KEY_ALLOWLIST = {
+    "base_url", "url", "path", "output_root", "version", "name",
+    "user_agent", "model", "provider", "engine", "timeout_seconds",
+}
+
+_SECRET_KEY_HINTS = ("key", "secret", "token", "password", "credential")
+
+
+def scan_hardcoded_secrets(node: Any, path: str = "") -> list:
+    """扫描配置里疑似硬编码的密钥，返回 [(配置路径, 原因), ...]。
+
+    用于在启动时告警，避免密钥随仓库提交。**只报告，不修改**。
+    """
+    hits: list = []
+    if isinstance(node, dict):
+        for k, v in node.items():
+            hits.extend(scan_hardcoded_secrets(v, f"{path}.{k}" if path else str(k)))
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            hits.extend(scan_hardcoded_secrets(v, f"{path}[{i}]"))
+    elif isinstance(node, str):
+        leaf = path.split(".")[-1].split("[")[0].lower()
+        if any(h in leaf for h in _SECRET_KEY_HINTS) and leaf not in _SECRET_KEY_ALLOWLIST:
+            if _SECRET_LIKE.match(node.strip()):
+                hits.append((path, f"疑似硬编码密钥（长度 {len(node)}），应改为 ${{ENV_VAR}} 占位符"))
+    return hits
+
+
+def get_secret(settings: dict, *keys: str, env_var: str = "") -> str:
+    """读取密钥：环境变量优先，回退配置。
+
+    用法：get_secret(settings, "elmo", "api_key", env_var="ELMO_API_KEY")
+    """
+    if env_var:
+        v = os.environ.get(env_var, "").strip()
+        if v:
+            return v
+    node: Any = settings
+    for k in keys:
+        if not isinstance(node, dict):
+            return ""
+        node = node.get(k)
+    return (node or "").strip() if isinstance(node, str) else ""
+
+
 @lru_cache
 def load_settings(path: Optional[str] = None) -> dict:
-    """加载配置。
+    """加载配置（含 ${ENV_VAR} 展开）。
 
     优先级：
     1. 显式传入 path
@@ -52,7 +121,8 @@ def load_settings(path: Optional[str] = None) -> dict:
             os.path.join(_PROJECT_ROOT, "config", "settings.yaml"),
         )
     with open(path, encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+        raw = yaml.safe_load(f) or {}
+    return _expand_env(raw)
 
 
 @lru_cache

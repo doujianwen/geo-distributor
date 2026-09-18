@@ -13,6 +13,10 @@ class ProjectRepository(InMemoryRepository):
     数据隔离：按 tenant_id 过滤。
     """
 
+    # Project 同时有 request_id / project_id，必须显式声明主键，
+    # 否则 base.update() 的顺序探测会取到 request_id 而查不到存储 key。
+    _id_attr = "project_id"
+
     def __init__(self):
         super().__init__("Project")
         self._by_tenant: dict = {}

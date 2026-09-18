@@ -1,0 +1,60 @@
+{
+  "project_id": "PRJ-20260918-065957",
+  "tenant_id": "DST-DEFAULT",
+  "adapter": "opengeo",
+  "case": "bookconv",
+  "collected_at": "2026-09-18T06:59:57.938486",
+  "observation_count": 15,
+  "metrics": {
+    "case_id": "bookconv",
+    "version": "collect",
+    "query_count": 15,
+    "mention_rate": 100.0,
+    "citation_rate": 100.0,
+    "recommendation_rate": 86.67,
+    "query_coverage": 100.0,
+    "avg_recommendation_level": 2.133,
+    "competitor_count": 0,
+    "captured_at": "2026-09-18T06:59:57.936864"
+  },
+  "findings": [
+    {
+      "finding_id": "FND-PRJ-20260918-065957-001",
+      "observation_ids": [
+        "obs_bing_36496464"
+      ],
+      "category": "citation_quality",
+      "severity": "medium",
+      "statement": "Brand mentioned but low recommendation (level=1) for: 'djvu to pdf'",
+      "recommendation": "Improve content authority and add expert citations",
+      "evidence_refs": [],
+      "confidence": 0.7,
+      "priority_score": 0.0,
+      "status": "new",
+      "project_id": "PRJ-20260918-065957",
+      "case_id": "bookconv",
+      "created_at": "2026-09-18T06:59:57.936887",
+      "updated_at": "2026-09-18T06:59:57.936889",
+      "metadata": {}
+    },
+    {
+      "finding_id": "FND-PRJ-20260918-065957-002",
+      "observation_ids": [
+        "obs_bing_78880755"
+      ],
+      "category": "citation_quality",
+      "severity": "medium",
+      "statement": "Brand mentioned but low recommendation (level=1) for: 'epub to mobi converter free'",
+      "recommendation": "Improve content authority and add expert citations",
+      "evidence_refs": [],
+      "confidence": 0.7,
+      "priority_score": 0.0,
+      "status": "new",
+      "project_id": "PRJ-20260918-065957",
+      "case_id": "bookconv",
+      "created_at": "2026-09-18T06:59:57.936896",
+      "updated_at": "2026-09-18T06:59:57.936897",
+      "metadata": {}
+    }
+  ]
+}

@@ -76,7 +76,12 @@ class InMemoryRepository(BaseRepository[T]):
     - 不支持并发
     - 重启后数据丢失
     - 仅用于开发/测试
+
+    子类可通过类属性 `_id_attr` 声明主键字段名（见 update 实现）。
     """
+
+    # 主键字段名；None 时 update() 回退到按固定顺序探测（见 update）。
+    _id_attr: str | None = None
 
     def __init__(self, entity_name: str):
         self._entity_name = entity_name
@@ -128,12 +133,18 @@ class InMemoryRepository(BaseRepository[T]):
         return entity
 
     async def update(self, entity: T) -> T:
-        # 尝试多个可能的 ID 字段名
+        # 优先使用子类显式声明的 ID 字段（_id_attr）。
+        # 否则回退到"按固定顺序探测"的旧逻辑——注意该顺序对同时拥有多个
+        # ID 字段的实体（如 Project 同时有 request_id / project_id）会取错 key，
+        # 因此这类实体必须声明 _id_attr。
         entity_id = None
-        for attr in ("entity_id", "id", "request_id", "project_id", "work_item_id", "scope_id"):
-            if hasattr(entity, attr):
-                entity_id = getattr(entity, attr)
-                break
+        if getattr(self, "_id_attr", None):
+            entity_id = getattr(entity, self._id_attr, None)
+        else:
+            for attr in ("entity_id", "id", "request_id", "project_id", "work_item_id", "scope_id"):
+                if hasattr(entity, attr):
+                    entity_id = getattr(entity, attr)
+                    break
         if not entity_id:
             raise ValueError(f"Entity must have an id field: {self._entity_name}")
         if entity_id not in self._store:

@@ -31,7 +31,13 @@ class OrganizationStatus(Enum):
     TRIAL = "trial"
 
 
-class ProjectStatus(Enum):
+class CollectionProjectStatus(Enum):
+    """采集项目状态（平台层，调度用）。
+
+    ⚠️ 命名说明：原名 `ProjectStatus`，与 models/project.py 中商业交付项目的
+    `ProjectStatus`（approved / in_execution / delivered ...）**同名不同义**。
+    为消除歧义，平台层采集侧统一加 `Collection` 前缀。
+    """
     DRAFT = "draft"
     ACTIVE = "active"
     PAUSED = "paused"
@@ -75,12 +81,21 @@ class Brand:
 
 
 @dataclass
-class Project:
+class CollectionProject:
+    """采集项目（平台层，调度用）。
+
+    ⚠️ 命名说明：原名 `Project`。它描述的是"一次采集任务的配置"
+    （org + brand + prompts + 引擎 + cron），与 models/project.py 中
+    "商业交付容器"的 `Project` 完全不是一回事。
+
+    `geo_distributor.models.Project` 现指向商业交付容器——如需本类，
+    请显式使用 `CollectionProject`。
+    """
     project_id: str
     org_id: str
     brand_id: str
     name: str
-    status: ProjectStatus = ProjectStatus.DRAFT
+    status: CollectionProjectStatus = CollectionProjectStatus.DRAFT
     prompts_file: str = ""
     engines: List[str] = field(default_factory=list)
     schedule_cron: str = ""
@@ -101,10 +116,20 @@ class Run:
     failed: int = 0
     skipped: int = 0
     error_summary: str = ""
+    # prompt_id 命中但 prompt_text 不一致的条数（错配，已从指标中剔除）
+    prompt_mismatch: int = 0
 
 
 @dataclass
-class Report:
+class CollectionReport:
+    """采集报告（平台层，一次 Run 的结果汇总）。
+
+    ⚠️ 命名说明：原名 `Report`。与 models/geo_core.py 中"双报告模型"
+    （Technical / Client + 版本链）**同名不同义**。
+
+    `geo_distributor.models.Report` 现指向 geo_core 的双报告模型——
+    如需本类，请显式使用 `CollectionReport`。
+    """
     report_id: str
     project_id: str
     run_ids: List[str] = field(default_factory=list)
@@ -246,3 +271,39 @@ class Diagnosis:
     recommendations: List[str] = field(default_factory=list)  # 改进建议
     diagnosed_at: str = field(default_factory=lambda: datetime.now().isoformat())
     raw_metadata: dict = field(default_factory=dict)
+
+
+# ====================================================================
+# 子模块 re-export（P1 统一导入面）
+#
+# 背景：本文件是"平台层 + 链路层"的混合定义文件，子模块（client.py /
+# service_stage.py / geo_core.py / finding.py）另有一批模型。此前调用方
+# 必须按文件路径二选一，容易导入到错误的同名类。
+#
+# 规则：本文件只保留"平台层（采集侧）"模型，且一律带 Collection 前缀；
+# 商业交付侧模型从子模块 re-export，构成单一导入面。
+#
+# 2026-09-18 已消除的同名割裂（原平台层类已重命名）：
+#   - Project       → CollectionProject（采集任务配置）
+#   - Report        → CollectionReport（单次 Run 结果汇总）
+#   - ProjectStatus → CollectionProjectStatus（采集状态）
+#   现在 `models.Project` / `models.Report` / `models.ProjectStatus`
+#   唯一指向商业交付侧定义，与 `from geo_distributor.models.project import ...`
+#   完全一致，不会再出现"导入到错误同名类"的问题。
+# ====================================================================
+
+from .project import Project, ProjectStatus, PROJECT_TRANSITIONS  # 商业交付容器
+from .geo_core import Report, ReportType, ReportVersion            # 双报告模型
+from .client import Client
+from .service_stage import (
+    ServiceStage,
+    StageStatus,
+    StageRecord,
+    DEFAULT_STAGE_SEQUENCE,
+    STAGE_TRANSITIONS,
+    init_stage_records,
+    can_transition_stage,
+    next_stage,
+)
+from .geo_core import Evidence, EvidenceLevel
+from .finding import Finding, FindingSeverity, FindingCategory

@@ -55,6 +55,17 @@ class BusinessContext:
     business_question: str = ""
     attachments: List[str] = field(default_factory=list)  # 文件引用
 
+    def to_dict(self) -> dict:
+        """序列化（ServiceRequest.to_dict 依赖本方法）。"""
+        return {
+            "target_market": self.target_market,
+            "target_products": self.target_products,
+            "target_customer": self.target_customer,
+            "known_competitors": self.known_competitors,
+            "business_question": self.business_question,
+            "attachments": self.attachments,
+        }
+
 
 @dataclass
 class ClarificationRequest:
@@ -64,6 +75,16 @@ class ClarificationRequest:
     questions: List[str] = field(default_factory=list)
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     resolved_at: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        """序列化（ServiceRequest.to_dict 依赖本方法）。"""
+        return {
+            "request_id": self.request_id,
+            "missing_fields": self.missing_fields,
+            "questions": self.questions,
+            "created_at": self.created_at,
+            "resolved_at": self.resolved_at,
+        }
 
 
 @dataclass
@@ -119,6 +140,32 @@ class ServiceRequest:
         elif new_status == RequestStatus.CANCELLED and not self.cancelled_at:
             self.cancelled_at = self.updated_at
         return True
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ServiceRequest":
+        """从 to_dict() 输出还原（持久化层用）。"""
+        bc = data.get("business_context")
+        cr = data.get("clarification_request")
+        return cls(
+            request_id=data["request_id"],
+            tenant_id=data.get("tenant_id", ""),
+            client_id=data.get("client_id", ""),
+            status=RequestStatus(data.get("status", RequestStatus.DRAFT.value)),
+            service=data.get("service", "visibility_audit"),
+            requested_engines=list(data.get("requested_engines", [])),
+            business_context=BusinessContext(**bc) if bc else None,
+            clarification_request=ClarificationRequest(**cr) if cr else None,
+            scope_id=data.get("scope_id"),
+            project_id=data.get("project_id"),
+            submitted_at=data.get("submitted_at"),
+            approved_at=data.get("approved_at"),
+            delivered_at=data.get("delivered_at"),
+            accepted_at=data.get("accepted_at"),
+            cancelled_at=data.get("cancelled_at"),
+            created_at=data.get("created_at") or datetime.now().isoformat(),
+            updated_at=data.get("updated_at") or datetime.now().isoformat(),
+            idempotency_key=data.get("idempotency_key"),
+        )
 
     def to_dict(self) -> dict:
         return {

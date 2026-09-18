@@ -65,7 +65,9 @@ distributor:
 elmo:
   enabled: true
   base_url: "http://localhost:1515"
-  api_key: "5vGAUQo58wjhLiXp43bV3lvgIhF/AnIk6WxtREjevn4="
+  # 密钥走环境变量，禁止硬编码入仓库。启动时若未设置则展开为空字符串，
+  # Elmo adapter 会在实际调用前校验并给出明确错误。
+  api_key: "${ELMO_API_KEY}"
   version: "v0.3.0"
   timeout_seconds: 30
   max_retries: 2
