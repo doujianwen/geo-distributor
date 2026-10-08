@@ -82,7 +82,7 @@ geo-distributor/
 ### 2.3 关键事实
 
 - **geo-collector.db EXISTS** at `E:/GEO项目/技术层/geo-collector/geo_collector.db`（上游数据源存在）
-- **Elmo API key IS HARDCODED** in config/settings.yaml:68 (`api_key: "5vGAUQo58wjhLiXp43bV3lvgIhF/AnIk6WxtREjevn4="`)
+- **Elmo API key 已脱敏**：config/settings.yaml 现使用环境变量占位符 `${ELMO_API_KEY}`（非明文）；历史曾硬编码于 脚本/测试中，现已全部改为 `os.getenv("ELMO_API_KEY")`，明文值不入库
 - **Brand is "Hydroviv"**（water filter brand, not BookConv or TJOstrichInk）
 - **No web framework** anywhere in the codebase — `grep fastapi/flask/starlette/uvicorn/router` returns zero hits in geo_distributor/
 - **Service Stage 完全不存在** — grep "ServiceStage|service_stage" 返回零结果
@@ -203,7 +203,7 @@ httpx.AsyncClient() → GET/POST to Elmo REST API
 **关键发现**：
 1. **ElmoAdapter 是真实 HTTP 客户端**（elmo_client.py:65-114 使用 httpx）
 2. **但生产环境未配置** — settings.yaml 中 elmo.enabled: true 但 base_url: "http://localhost:1515"
-3. **API key 明文硬编码** — settings.yaml:68 `api_key: "5vGAUQo58wjhLiXp43bV3lvgIhF/AnIk6WxtREjevn4="`
+3. **API key 已脱敏** — 现通过环境变量 `ELMO_API_KEY` 注入，settings.yaml 使用 `${ELMO_API_KEY}` 占位符，明文值不再入库
 4. **错误处理完善** — elmo_client.py:98-114 有重试、超时、401/403 处理
 
 ### 6.2 数据流向分析

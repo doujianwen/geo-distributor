@@ -34,3 +34,13 @@ screenshots/
 # --- 本地覆盖配置（密钥等，见 .env.example）---
 .env.local
 config/settings.local.yaml
+# --- B-2 认证密钥（绝不入库）---
+config/api_keys.json
+
+# Pilot secrets (Stage-1) — 绝不入库
+.pilot_key_*
+.pilot_pid
+data/pilot/
+
+# WorkBuddy 本地工作记忆（内部资产，不入库）
+.workbuddy/

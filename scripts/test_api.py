@@ -1,7 +1,10 @@
 """Quick API exploration script."""
-import json, urllib.request, sys
+import json, os, urllib.request, sys
 sys.stdout.reconfigure(encoding='utf-8')
-key = '5vGAUQo58wjhLiXp43bV3lvgIhF/AnIk6WxtREjevn4='
+# 密钥从环境变量读取，不再硬编码（避免明文泄漏到仓库）
+key = os.getenv("ELMO_API_KEY", "")
+if not key:
+    sys.exit("[ERROR] ELMO_API_KEY 未设置，请先 export ELMO_API_KEY=...")
 pid = '7e64e741-b090-467f-a2e4-8106b186634e'
 
 # Test runs endpoint with proper params

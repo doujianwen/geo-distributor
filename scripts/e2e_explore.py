@@ -5,6 +5,7 @@
 """
 
 import json
+import os
 import sys
 import urllib.request
 import urllib.error
@@ -12,7 +13,10 @@ from datetime import datetime
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-API_KEY = "5vGAUQo58wjhLiXp43bV3lvgIhF/AnIk6WxtREjevn4="
+# 密钥从环境变量读取，不再硬编码（避免明文泄漏到仓库）
+API_KEY = os.getenv("ELMO_API_KEY", "")
+if not API_KEY:
+    sys.exit("[ERROR] ELMO_API_KEY 未设置，请先 export ELMO_API_KEY=...")
 BASE = "http://localhost:1515"
 PID = "7e64e741-b090-467f-a2e4-8106b186634e"
 BRAND_ID = "test-brand"

@@ -50,6 +50,40 @@ def _obs(competitors, mentioned=True, level=0, engine="chatgpt"):
     }
 
 
+
+# ------------------------------------------------------------
+# B-2 认证凭证：既有测试用固定 tenant，这里提供对应密钥。
+# 仅补凭证，不改变任何断言逻辑。
+# ------------------------------------------------------------
+_B2_KEY_MAP = {
+    "T-CA": "sk-p1-tca",
+    "T-CB": "sk-p1-tcb",
+    "HQ-TEST": "sk-p1-hq",
+}
+_B2_KEYS = ",".join(f"{t}:{k}:DISTRIBUTOR_ADMIN" for t, k in _B2_KEY_MAP.items())
+
+
+def _b2_headers(tenant: str) -> dict:
+    key = _B2_KEY_MAP.get(tenant, "sk-p1-hq")
+    return {"X-API-Key": key, "X-Tenant-ID": tenant}
+
+
+def _setup_b2_keys() -> None:
+    import os
+
+    os.environ["GEO_DISTRIBUTOR_ENV"] = "test"
+    os.environ["GEO_DISTRIBUTOR_API_KEYS"] = _B2_KEYS
+    try:
+        from api.auth import reset_registry_cache
+
+        reset_registry_cache()
+    except Exception:
+        pass
+
+
+_setup_b2_keys()
+
+
 def test_normalize_competitors_accepts_three_shapes():
     """字段形态兼容：list[dict]/list[str]/JSON 字符串。"""
     # dict with brand
@@ -179,7 +213,9 @@ def test_env_placeholder_missing_expands_empty(monkeypatch):
 
 
 def test_scan_hardcoded_secrets_detects():
-    bad = {"elmo": {"api_key": "5vGAUQo58wjhLiXp43bV3lvgIhF/AnIk6WxtREjevn4="}}
+    # 测试夹具：故意构造"形似密钥"的字符串，验证扫描器能命中。
+    # 这是测试用假值（非真实凭证），模式与 scan_hardcoded_secrets 的判定启发式匹配。
+    bad = {"elmo": {"api_key": "FAKE-SECRET-FOR-TEST-dQ5vGx2kQo58wjhLiXp43bV3lvg"}}
     hits = config.scan_hardcoded_secrets(bad)
     assert len(hits) == 1
     assert "elmo.api_key" in hits[0][0]
@@ -400,21 +436,21 @@ def test_measurement_response_keeps_competitors():
 
     with TestClient(app) as c:
         r = c.post("/clients", json={"name": "CA", "industry": "x"},
-                   headers={"X-Tenant-ID": "T-CA"})
+                   headers=_b2_headers("T-CA"))
         assert r.status_code == 201
         cid = r.json()["client_id"]
 
         r = c.post("/projects", json={
             "tenant_id": "T-CA", "client_id": cid, "service": "visibility_audit",
             "target_market": ["US"], "business_question": "q",
-        }, headers={"X-Tenant-ID": "T-CA"})
+        }, headers=_b2_headers("T-CA"))
         assert r.status_code == 201
         pid = r.json()["project_id"]
 
         r = c.post("/measurements", json={
             "project_id": pid, "case_id": "bookconv",
             "adapter": "opengeo", "tenant_id": "T-CA",
-        }, headers={"X-Tenant-ID": "T-CA"})
+        }, headers=_b2_headers("T-CA"))
         assert r.status_code == 201
         body = r.json()
 
@@ -434,19 +470,19 @@ def test_measurement_observation_limit_honored():
 
     with TestClient(app) as c:
         r = c.post("/clients", json={"name": "CB", "industry": "x"},
-                   headers={"X-Tenant-ID": "T-CB"})
+                   headers=_b2_headers("T-CB"))
         cid = r.json()["client_id"]
         r = c.post("/projects", json={
             "tenant_id": "T-CB", "client_id": cid, "service": "visibility_audit",
             "target_market": ["US"], "business_question": "q",
-        }, headers={"X-Tenant-ID": "T-CB"})
+        }, headers=_b2_headers("T-CB"))
         pid = r.json()["project_id"]
 
         r = c.post("/measurements", json={
             "project_id": pid, "case_id": "tjostrichink",
             "adapter": "opengeo", "tenant_id": "T-CB",
             "observation_limit": 5,
-        }, headers={"X-Tenant-ID": "T-CB"})
+        }, headers=_b2_headers("T-CB"))
         assert r.status_code == 201
         assert len(r.json()["observations"]) == 5
 
@@ -462,43 +498,46 @@ def test_distribution_routes_available():
     from api.app import app
 
     with TestClient(app) as c:
-        h = c.get("/health").json()
-        assert "distribution_service" in h
+        # B-2 安全加固：/health 是公开端点，只返回最小状态。
+        # 原实现读h["distribution_service"] 判断调度服务可用性，
+        # 该字段已移除（公开端点不应暴露内部组件状态）。
+        # 改为直接调用端点：503 即视为服务不可用并skip。
+        h = c.get("/health", headers=_b2_headers("HQ-TEST")).json()
+        assert h == {"status": "ok"}, f"健康端点应只返回最小状态，实际 {h}"
 
-        if not h["distribution_service"]:
-            pytest.skip(f"distribution service unavailable: {h.get('distribution_service_error')}")
-
-        r = c.post("/distribution/orgs", json={"name": "RouteOrg", "contact_email": "r@o.com"})
-        assert r.status_code == 201
+        r = c.post("/distribution/orgs", json={"name": "RouteOrg", "contact_email": "r@o.com"}, headers=_b2_headers("HQ-TEST"))
+        if r.status_code == 503:
+            pytest.skip("distribution service unavailable（503）")
+        assert r.status_code == 201, f"创建 org 失败：{r.status_code} {r.text[:150]}"
         oid = r.json()["org_id"]
 
-        r = c.post("/distribution/brands", json={"org_id": oid, "name": "RouteBrand"})
+        r = c.post("/distribution/brands", json={"org_id": oid, "name": "RouteBrand"}, headers=_b2_headers("HQ-TEST"))
         assert r.status_code == 201
         bid = r.json()["brand_id"]
 
         r = c.post("/distribution/projects", json={
             "org_id": oid, "brand_id": bid, "name": "P",
-            "prompts_file": "config/prompts_hydroviv.json",
-        })
+            "prompts_file": "config/prompts_bookconv.json",
+        }, headers=_b2_headers("HQ-TEST"))
         assert r.status_code == 201
         pid = r.json()["project_id"]
 
-        r = c.post(f"/distribution/projects/{pid}/run")
+        r = c.post(f"/distribution/projects/{pid}/run", headers=_b2_headers("HQ-TEST"))
         assert r.status_code == 201
         run = r.json()
         assert run["total_prompts"] == 10
         # 未采集的占位观测不得被计成失败
         assert run["failed"] == 0
 
-        r = c.post(f"/distribution/runs/{run['run_id']}/report")
+        r = c.post(f"/distribution/runs/{run['run_id']}/report", headers=_b2_headers("HQ-TEST"))
         assert r.status_code == 201
         rep = r.json()
         assert "mention_rate" in rep["summary"]
         assert "uncollected" in rep["summary"]
 
         # 引用完整性错误应返回 400 而非 500
-        assert c.post("/distribution/brands", json={"org_id": "NOPE", "name": "x"}).status_code == 400
-        assert c.post("/distribution/projects/NOPE/run").status_code == 404
+        assert c.post("/distribution/brands", json={"org_id": "NOPE", "name": "x"}, headers=_b2_headers("HQ-TEST")).status_code == 400
+        assert c.post("/distribution/projects/NOPE/run", headers=_b2_headers("HQ-TEST")).status_code == 404
 
 
 def test_distribution_run_not_collected_is_not_failure():
