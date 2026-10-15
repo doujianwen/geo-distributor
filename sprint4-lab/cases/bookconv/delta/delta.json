@@ -1,0 +1,13 @@
+{
+  "day": "Day30",
+  "date": "2026-10-14",
+  "baseline_day": "Day0",
+  "delta": {
+    "mention_delta": 0.0,
+    "citation_delta": 0.0,
+    "recommendation_delta": -6.67,
+    "query_coverage_delta": -12.82,
+    "avg_recommendation_level_delta": -0.133,
+    "competitor_delta": 0
+  }
+}

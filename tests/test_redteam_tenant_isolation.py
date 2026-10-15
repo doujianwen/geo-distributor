@@ -150,15 +150,39 @@ class TestTenantIsolationRequest:
         )
         await repo.create(req_a)
 
-        # 攻击：Tenant B 使用 Tenant A 的 ID 尝试读取
-        attacker_repo = RequestRepository()
-        result = await attacker_repo.find_by_id("SR-A-001")
+        # 前置硬断言：Tenant A 的数据确实存在于**攻击者使用的那个仓储**里。
+        # 原实现用 `attacker_repo = RequestRepository()` 新建了一个空仓储，
+        # 攻击者在其中根本查不到任何东西 → result 恒为 None → 断言恒通过。
+        # 这是比`if result:` 更隐蔽的假绿：**攻击从未真正发生，测试却通过了**。
+        attacker_repo = repo  # 复用同一仓储，攻击者与受害者共享数据视图
 
-        # 即使能查到，也必须验证 tenant_id
-        if result:
-            assert result.tenant_id == "DST-A"
-            # 攻击者 tenant_id != 数据 tenant_id → 拒绝
-            assert False  # 实际API层应拒绝此请求
+        # 步骤 1：证明攻击者的仓储里确实有这个实体（否则后面的拒绝毫无意义）
+        try:
+            victim_visible = await attacker_repo.find_by_id("SR-A-001")
+        except Exception as exc:  # noqa: BLE001
+            pytest.fail(f"前置失败：{type(exc).__name__}: {exc}")
+        assert victim_visible is not None, (
+            "前置失败：攻击者仓储中查不到 Tenant A 的实体，"
+            "说明攻击场景未成立，后续断言无意义"
+        )
+        assert victim_visible.tenant_id == "DST-A", "前置失败：实体归属不符"
+
+        # 步骤 2：真正的门禁 —— tenant-facing 的 scoped 查询必须拒绝
+        try:
+            result = await attacker_repo.find_by_id_scoped(
+                "SR-A-001", tenant_id="DST-B"
+            )
+        except Exception as exc:  # noqa: BLE001
+            pytest.fail(
+                f"跨租户 scoped 查询抛出未处理异常 {type(exc).__name__}: {exc}；"
+                "异常消息泄漏目标 tenant_id，应改为返回 None"
+            )
+
+        # 硬断言：Tenant B 不得看到 Tenant A 的实体
+        assert result is None, (
+            "correlated-ID 攻击成立：Tenant B 拿到了 "
+            f"{getattr(result, 'tenant_id', '?')} 的实体"
+        )
 
 
 class TestTenantIsolationProject:

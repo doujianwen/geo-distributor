@@ -40,7 +40,18 @@ active_db_path: str | None = None
 
 # --- in-memory measurement results store ---
 # key: project_id -> list of dicts (collect_result payloads)
+#
+# Commercial V1 · P0-4：本字典**不再是唯一真源**。SQLite 模式下每次采集都会同时
+# 写入 measurements_projection 表；本字典保留为同进程内的热缓存与内存模式回退。
 _measurement_results: dict[str, list[dict]] = {}
+
+# --- measurement persistence (SQLite 模式下非 None) ---
+measurement_repo = None
+
+# --- Lead Intake Queue（ADR-009 · U2）---
+# 投影存储（dict payload，非领域模型）；SQLite 模式下落 leads_intake 表，
+# 内存模式下走 InMemoryJSONRepository。用于 Website Lead → HQ 待分配队列。
+lead_repo = None
 
 
 def init_repositories(db_path: str | None = None) -> None:
@@ -54,6 +65,8 @@ def init_repositories(db_path: str | None = None) -> None:
     global project_service, delivery_service, report_service
     global distribution_service, distribution_service_error
     global persistence_backend, active_db_path
+    global measurement_repo
+    global lead_repo
 
     from geo_distributor.repositories.client_repo import ClientRepository
     from geo_distributor.repositories.project_repo import ProjectRepository
@@ -70,7 +83,9 @@ def init_repositories(db_path: str | None = None) -> None:
         SQLiteClientRepository,
         SQLiteProjectRepository,
         SQLiteRequestRepository,
+        SQLiteJSONRepository,
     )
+    from geo_distributor.persistence.json_store import InMemoryJSONRepository
 
     # 显式参数 > 环境变量 GEO_DISTRIBUTOR_DB > None（内存）
     resolved_db = resolve_db_path(db_path)
@@ -80,6 +95,13 @@ def init_repositories(db_path: str | None = None) -> None:
         client_repo = SQLiteClientRepository(resolved_db)
         project_repo = SQLiteProjectRepository(resolved_db)
         request_repo = SQLiteRequestRepository(resolved_db)
+        report_repo = SQLiteJSONRepository("reports_projection", resolved_db)
+        # P0-4：采集结果持久化（跨重启保留），与 reports_projection 同构。
+        measurement_repo = SQLiteJSONRepository(
+            "measurements_projection", resolved_db, id_key="measurement_id"
+        )
+        # ADR-009：Lead Intake Queue（跨重启保留 → 满足 §4-12）
+        lead_repo = SQLiteJSONRepository("leads_intake", resolved_db, id_key="lead_id")
         persistence_backend = "sqlite"
         active_db_path = resolved_db
     else:
@@ -87,6 +109,9 @@ def init_repositories(db_path: str | None = None) -> None:
         client_repo = ClientRepository()
         project_repo = ProjectRepository()
         request_repo = RequestRepository()
+        report_repo = None
+        measurement_repo = None
+        lead_repo = InMemoryJSONRepository("lead_id")
         persistence_backend = "memory"
         active_db_path = None
 
@@ -104,6 +129,8 @@ def init_repositories(db_path: str | None = None) -> None:
         transition_guard=transition_guard,
     )
     delivery_service = DeliveryService(report_service=None)
+    if report_repo is not None:
+        delivery_service.report_service._repository = report_repo
     report_service = delivery_service.report_service
 
     # 平台层采集调度服务：默认接 geo-collector SQLite。

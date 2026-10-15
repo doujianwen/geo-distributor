@@ -1,0 +1,20 @@
+[
+  {
+    "day": "Day30",
+    "date": "2026-10-14",
+    "metrics": {
+      "case_id": "CASE-002",
+      "version": "Day30",
+      "query_count": 49,
+      "mention_rate": 100.0,
+      "citation_rate": 0.0,
+      "recommendation_rate": 26.53,
+      "query_coverage": 163.33,
+      "avg_recommendation_level": 1.408,
+      "competitor_count": 0,
+      "captured_at": "2026-10-14T03:51:15.002426+00:00"
+    },
+    "source": "GSC 人工导出 2026-10-14（用户手测）",
+    "query_count_raw": 49
+  }
+]

@@ -67,6 +67,7 @@ class ScopingService:
             "visibility_audit": {"measurement": True, "diagnosis": False, "intervention": False, "remeasurement": False},
             "measurement": {"measurement": True, "diagnosis": False, "intervention": False, "remeasurement": False},
             "diagnosis": {"measurement": True, "diagnosis": True, "intervention": False, "remeasurement": False},
+            "competitor_analysis": {"measurement": True, "diagnosis": True, "intervention": False, "remeasurement": False},
             "intervention": {"measurement": True, "diagnosis": True, "intervention": True, "remeasurement": False},
             "remeasurement": {"measurement": True, "diagnosis": False, "intervention": False, "remeasurement": True},
             "full_geo_project": {"measurement": True, "diagnosis": True, "intervention": True, "remeasurement": True},

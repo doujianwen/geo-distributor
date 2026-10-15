@@ -1,0 +1,12 @@
+{
+  "baseline": "Day0(2026-09-13)",
+  "remeasure": "Day30(2026-10-14)",
+  "delta": {
+    "mention_rate_delta": 0.0,
+    "citation_rate_delta": 0.0,
+    "recommendation_rate_delta": 2.62,
+    "query_coverage_delta": 10.0,
+    "avg_recommendation_level_delta": 0.038,
+    "competitor_count_delta": 0
+  }
+}

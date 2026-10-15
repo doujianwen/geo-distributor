@@ -1,0 +1,110 @@
+:root{
+  --bg:#f5f6f8; --panel:#ffffff; --line:#e3e6ea; --ink:#1c2024; --ink2:#5b6570;
+  --brand:#1f6feb; --brand-d:#1554b8; --ok:#1a7f37; --warn:#9a6700; --err:#b42318;
+  --chip:#eef2f7; --radius:10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+  font:14px/1.55 -apple-system,"Segoe UI","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif}
+a{color:var(--brand);text-decoration:none}
+a:hover{text-decoration:underline}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:5}
+.brand{display:flex;align-items:baseline;gap:8px}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--brand);
+  display:inline-block;transform:translateY(-1px)}
+.brand .sub{color:var(--ink2);font-size:12px}
+.session{display:flex;align-items:center;gap:10px}
+/* 修复：作者样式 display:flex 会覆盖 UA 样式表对 [hidden] 的 display:none，
+   导致登出后身份徽章仍然显示（2026-10-13 验收实测）。 */
+.session[hidden]{display:none!important}
+.who{font-size:12px;color:var(--ink2);font-family:ui-monospace,Consolas,monospace}
+
+main{max-width:1080px;margin:20px auto;padding:0 20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:18px 20px;margin-bottom:16px;overflow-x:auto}
+h1{font-size:19px;margin:0 0 4px}
+h2{font-size:15px;margin:0 0 10px}
+.muted{color:var(--ink2)}
+.small{font-size:12px}
+.row{display:flex;gap:14px;flex-wrap:wrap}
+.row>.card{flex:1 1 200px;margin-bottom:0}
+.kpi{font-size:26px;font-weight:600;letter-spacing:-.5px}
+.kpi-label{font-size:12px;color:var(--ink2);text-transform:uppercase;letter-spacing:.4px}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--ink2);font-weight:600}
+tbody tr:hover{background:#fafbfc}
+
+label{display:block;font-size:12px;color:var(--ink2);margin:10px 0 4px}
+input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);
+  border-radius:8px;font:inherit;background:#fff;color:var(--ink)}
+textarea{min-height:76px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid #cfe0ff;border-color:var(--brand)}
+
+.btn{display:inline-block;padding:8px 14px;border-radius:8px;border:1px solid var(--brand);
+  background:var(--brand);color:#fff;font:inherit;cursor:pointer}
+.btn:hover{background:var(--brand-d);border-color:var(--brand-d)}
+.btn[disabled]{opacity:.55;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--ink2);border-color:var(--line)}
+.btn.ghost:hover{background:#f0f2f5;color:var(--ink)}
+.btn.sm{padding:4px 10px;font-size:12px}
+
+.chip{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--chip);
+  font-size:11px;color:var(--ink2);margin:0 4px 4px 0}
+.chip.ok{background:#e6f4ea;color:var(--ok)}
+.chip.warn{background:#fdf3e3;color:var(--warn)}
+.chip.err{background:#fdecea;color:var(--err)}
+
+.notice{padding:10px 12px;border-radius:8px;border:1px solid var(--line);margin:10px 0}
+.notice.err{background:#fdecea;border-color:#f3c0bb;color:var(--err)}
+.notice.ok{background:#e9f7ee;border-color:#b7e0c4;color:var(--ok)}
+.notice.info{background:#eef4fd;border-color:#c8daf7;color:var(--brand-d)}
+
+.bar{height:8px;background:var(--chip);border-radius:999px;overflow:hidden;margin:6px 0}
+.bar>i{display:block;height:100%;background:var(--brand)}
+.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.tabs a{padding:6px 12px;border-radius:8px;background:var(--panel);border:1px solid var(--line);
+  color:var(--ink2);font-size:13px}
+.tabs a.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.foot{max-width:1080px;margin:26px auto 40px;padding:0 20px;display:flex;
+  justify-content:space-between;gap:12px;font-size:12px;color:var(--ink2);flex-wrap:wrap}
+.empty{padding:16px;color:var(--ink2);font-size:13px;background:#fafbfc;
+  border:1px dashed var(--line);border-radius:8px}
+code{background:var(--chip);padding:1px 5px;border-radius:4px;
+  font-family:ui-monospace,Consolas,monospace;font-size:12px}
+
+/* ---------- 布局工具类 ----------
+   UI CSP 为 `style-src 'self'`，内联 style 属性会被浏览器拦截并报错；
+   因此一切动态/局部样式必须落在类上，JS 只切类名。 */
+.col{flex:1 1 200px;min-width:0}
+.mt{margin-top:16px}
+.chips{margin:6px 0 2px}
+.card.sub{background:#fbfcfd;border-style:dashed;padding:14px 16px;margin:10px 0}
+.login-card{max-width:420px;margin:48px auto}
+
+/* ---------- 进度条宽度档位（w-0 .. w-100，步长 5） ---------- */
+.bar>i.w-0{width:0}
+.bar>i.w-5{width:5%}
+.bar>i.w-10{width:10%}
+.bar>i.w-15{width:15%}
+.bar>i.w-20{width:20%}
+.bar>i.w-25{width:25%}
+.bar>i.w-30{width:30%}
+.bar>i.w-35{width:35%}
+.bar>i.w-40{width:40%}
+.bar>i.w-45{width:45%}
+.bar>i.w-50{width:50%}
+.bar>i.w-55{width:55%}
+.bar>i.w-60{width:60%}
+.bar>i.w-65{width:65%}
+.bar>i.w-70{width:70%}
+.bar>i.w-75{width:75%}
+.bar>i.w-80{width:80%}
+.bar>i.w-85{width:85%}
+.bar>i.w-90{width:90%}
+.bar>i.w-95{width:95%}
+.bar>i.w-100{width:100%}

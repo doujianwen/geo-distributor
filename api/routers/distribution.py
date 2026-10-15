@@ -10,10 +10,11 @@ CollectionProject / Run / CollectionReport），与商业交付侧的
 
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from .. import state
+from ..deps import authenticate, require_write
 
 router = APIRouter(prefix="/distribution", tags=["distribution"])
 
@@ -115,7 +116,7 @@ def _svc():
 
 
 @router.post("/orgs", response_model=OrgOut, status_code=201)
-async def create_org(body: OrgCreate):
+async def create_org(body: OrgCreate, auth=Depends(require_write)):
     from geo_distributor.services.distribution import DistributionError
     try:
         org = await _svc().create_organization(body.name, body.contact_email)
@@ -128,7 +129,7 @@ async def create_org(body: OrgCreate):
 
 
 @router.get("/orgs", response_model=List[OrgOut])
-async def list_orgs():
+async def list_orgs( auth=Depends(authenticate)):
     return [
         OrgOut(
             org_id=o.org_id, name=o.name, status=o.status.value,
@@ -144,7 +145,7 @@ async def list_orgs():
 
 
 @router.post("/brands", response_model=BrandOut, status_code=201)
-async def create_brand(body: BrandCreate):
+async def create_brand(body: BrandCreate, auth=Depends(require_write)):
     from geo_distributor.services.distribution import DistributionError
     from geo_distributor.models import BrandTarget
     try:
@@ -164,7 +165,7 @@ async def create_brand(body: BrandCreate):
 
 
 @router.get("/brands", response_model=List[BrandOut])
-async def list_brands(org_id: str):
+async def list_brands(org_id: str, auth=Depends(authenticate)):
     return [
         BrandOut(
             brand_id=b.brand_id, org_id=b.org_id, name=b.name,
@@ -180,7 +181,7 @@ async def list_brands(org_id: str):
 
 
 @router.post("/projects", response_model=CollectionProjectOut, status_code=201)
-async def create_collection_project(body: CollectionProjectCreate):
+async def create_collection_project(body: CollectionProjectCreate, auth=Depends(require_write)):
     from geo_distributor.services.distribution import DistributionError
     try:
         p = await _svc().create_project(
@@ -198,7 +199,7 @@ async def create_collection_project(body: CollectionProjectCreate):
 
 
 @router.get("/projects", response_model=List[CollectionProjectOut])
-async def list_collection_projects(org_id: Optional[str] = None):
+async def list_collection_projects(org_id: Optional[str] = None, auth=Depends(authenticate)):
     return [
         CollectionProjectOut(
             project_id=p.project_id, org_id=p.org_id, brand_id=p.brand_id,
@@ -210,7 +211,7 @@ async def list_collection_projects(org_id: Optional[str] = None):
 
 
 @router.post("/projects/{project_id}/run", response_model=RunOut, status_code=201)
-async def run_collection_project(project_id: str):
+async def run_collection_project(project_id: str, auth=Depends(require_write)):
     """触发一次采集运行。"""
     from geo_distributor.services.distribution import DistributionError
     svc = _svc()
@@ -225,7 +226,7 @@ async def run_collection_project(project_id: str):
 
 
 @router.get("/runs", response_model=List[RunOut])
-async def list_runs(project_id: Optional[str] = None):
+async def list_runs(project_id: Optional[str] = None, auth=Depends(authenticate)):
     return [RunOut(**r.__dict__) for r in _svc().list_runs(project_id=project_id)]
 
 
@@ -235,7 +236,7 @@ async def list_runs(project_id: Optional[str] = None):
 
 
 @router.post("/runs/{run_id}/report", response_model=ReportOut, status_code=201)
-async def generate_run_report(run_id: str):
+async def generate_run_report(run_id: str, auth=Depends(require_write)):
     svc = _svc()
     run = svc.get_run(run_id)
     if not run:
@@ -245,5 +246,5 @@ async def generate_run_report(run_id: str):
 
 
 @router.get("/reports", response_model=List[ReportOut])
-async def list_reports(project_id: Optional[str] = None):
+async def list_reports(project_id: Optional[str] = None, auth=Depends(authenticate)):
     return [ReportOut(**r.__dict__) for r in _svc().list_reports(project_id=project_id)]

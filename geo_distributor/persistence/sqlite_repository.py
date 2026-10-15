@@ -190,6 +190,110 @@ class SQLiteRepository:
 
 
 # ======================================================================
+# JSON payload repository for existing service projections
+# ======================================================================
+
+class SQLiteJSONRepository:
+    """Persistent store for service projections; no new domain entity."""
+
+    def __init__(self, table: str, db_path: Optional[str] = None, id_key: str = "report_id"):
+        """id_key：payload 中充当主键的字段名。
+
+        默认 "report_id" 保持既有 reports_projection 行为不变；
+        measurements_projection 传入 "measurement_id"。
+        """
+        if not table.isidentifier():
+            raise ValueError("Invalid SQLite table name")
+        if not id_key.isidentifier():
+            raise ValueError("Invalid id_key")
+        self.id_key = id_key
+        self.table = table
+        self.db_path = db_path or os.environ.get(_ENV_DB) or get_default_db_path()
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        with _lock:
+            conn = self._connect()
+            try:
+                conn.execute(f"CREATE TABLE IF NOT EXISTS {self.table} (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, project_id TEXT NOT NULL, payload TEXT NOT NULL, updated_at TEXT NOT NULL)")
+                conn.execute(f"CREATE INDEX IF NOT EXISTS idx_{self.table}_tenant_project ON {self.table}(tenant_id, project_id)")
+                conn.commit()
+            finally:
+                conn.close()
+
+    def _connect(self):
+        conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    async def upsert(self, payload: dict):
+        now = datetime.now().isoformat()
+        with _lock:
+            conn = self._connect()
+            try:
+                conn.execute(f"INSERT INTO {self.table} (id, tenant_id, project_id, payload, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET tenant_id=excluded.tenant_id, project_id=excluded.project_id, payload=excluded.payload, updated_at=excluded.updated_at", (payload[self.id_key], payload["tenant_id"], payload["project_id"], json.dumps(payload, ensure_ascii=False), now))
+                conn.commit()
+            finally:
+                conn.close()
+        return payload
+
+    async def create_if_absent(self, payload: dict):
+        """Atomically create a projection row without overwriting an existing ID.
+
+        Returns ``(stored_payload, created)``; concurrent retries observe the first
+        accepted payload and cannot reset its assignment/conversion state.
+        """
+        now = datetime.now().isoformat()
+        entity_id = payload[self.id_key]
+        with _lock:
+            conn = self._connect()
+            try:
+                cursor = conn.execute(
+                    f"INSERT OR IGNORE INTO {self.table} (id, tenant_id, project_id, payload, updated_at) VALUES (?, ?, ?, ?, ?)",
+                    (entity_id, payload["tenant_id"], payload["project_id"], json.dumps(payload, ensure_ascii=False), now),
+                )
+                created = cursor.rowcount == 1
+                conn.commit()
+                row = conn.execute(f"SELECT payload FROM {self.table} WHERE id = ?", (entity_id,)).fetchone()
+                stored = json.loads(row["payload"]) if row else dict(payload)
+                return stored, created
+            finally:
+                conn.close()
+
+    async def get(self, entity_id: str, tenant_id: Optional[str] = None):
+        conn = self._connect()
+        try:
+            row = conn.execute(f"SELECT payload, tenant_id FROM {self.table} WHERE id = ?", (entity_id,)).fetchone()
+            if not row or (tenant_id is not None and row["tenant_id"] != tenant_id):
+                return None
+            return json.loads(row["payload"])
+        finally:
+            conn.close()
+
+    async def list_by_project(self, project_id: str, tenant_id: str):
+        conn = self._connect()
+        try:
+            rows = conn.execute(f"SELECT payload FROM {self.table} WHERE project_id = ? AND tenant_id = ? ORDER BY updated_at DESC", (project_id, tenant_id)).fetchall()
+            return [json.loads(row["payload"]) for row in rows]
+        finally:
+            conn.close()
+
+    async def list_by_tenant(self, tenant_id: str):
+        """按租户列出全部投影行。
+
+        ADR-009 Lead Intake Queue 需要——该类条目在「转项目」之前没有 project 维度，
+        无法用 list_by_project 检索。租户过滤在 SQL 层完成，与既有隔离语义一致。
+        """
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                f"SELECT payload FROM {self.table} WHERE tenant_id = ? ORDER BY updated_at DESC",
+                (tenant_id,),
+            ).fetchall()
+            return [json.loads(row["payload"]) for row in rows]
+        finally:
+            conn.close()
+
+
+# ======================================================================
 # Client
 # ======================================================================
 
@@ -302,6 +406,35 @@ class SQLiteRequestRepository(SQLiteRepository):
                 f"Access denied: Request {request_id} belongs to tenant "
                 f"{entity.tenant_id}, not {tenant_id}"
             )
+        return entity
+
+    async def find_by_id_unscoped(self, request_id: str):
+        """内部流程专用：无租户作用域的读取。
+
+        B-3/P0 补齐：`RequestRepository`（内存）已有此方法，但 SQLite 版本缺失，
+        导致 persist 模式下 `approve_scope` 抛 AttributeError
+        —— 表现为**项目创建 100% 失败**。
+
+        这类「两个后端方法集不一致」的缺陷只在 persist 模式暴露，
+        因此必须有真实进程集成测试才能发现（单元测试用内存仓储）。
+
+        仅供受状态机守卫保护的内部路径使用，不得暴露为 HTTP 端点。
+        """
+        return await self._raw_get(request_id)
+
+    async def find_by_id_scoped(self, request_id: str, tenant_id: str):
+        """B-3/P0 补齐：强制租户作用域的查询（与内存版本语义一致）。
+
+        - tenant_id 为空 → 返回 None（fail closed，不抛异常）
+        - 租户不符 → 返回 None（异常消息会泄漏目标 tenant_id）
+        """
+        if not tenant_id or not str(tenant_id).strip():
+            return None
+        entity = await self._raw_get(request_id)
+        if entity is None:
+            return None
+        if getattr(entity, "tenant_id", None) != tenant_id:
+            return None
         return entity
 
     async def find_by_tenant(self, tenant_id: str) -> List:

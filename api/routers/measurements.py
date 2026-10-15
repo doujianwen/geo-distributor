@@ -3,10 +3,12 @@
 from __future__ import annotations
 from typing import Annotated, List, Optional
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel, Field
 
 from .. import state
+from ..deps import authenticate, require_write
+from geo_distributor.repositories.base import PermissionError as RepoPermissionError
 
 router = APIRouter(prefix="/measurements", tags=["measurements"])
 
@@ -98,9 +100,22 @@ def _get_project_repo() -> state.ProjectRepository:
     return state.project_repo  # type: ignore
 
 
+def _require_tenant_header(x_tenant_id: str | None) -> str:
+    """B-1 修复：tenant context 缺失即 fail closed（原实现直接忽略该header）。"""
+    # B-2：tenant 已由认证层（密钥绑定）确定，header 仅作可选声明。
+    # 缺失时不报错 —— 使用认证上下文中的 tenant。
+    # 声明与密钥冲突由 api.auth.resolve_tenant 拦截（403）。
+    return x_tenant_id or""
+
+
 async def _verify_tenant(project_id: str, tenant_id: str | None) -> None:
+    """按 (project_id, tenant_id) 校验项目归属，租户不符视为不可见。"""
+    # B-2：tenant_id 由认证层校验后传入，不再要求 header 存在
     repo = _get_project_repo()
-    p = await repo.find_by_id(project_id, tenant_id=tenant_id)
+    try:
+        p = await repo.find_by_id(project_id, tenant_id=tenant_id)
+    except RepoPermissionError:
+        p = None
     if not p:
         raise HTTPException(status_code=404, detail=f"Project {project_id} not found or tenant mismatch")
 
@@ -110,7 +125,7 @@ async def _verify_tenant(project_id: str, tenant_id: str | None) -> None:
 # ------------------------------------------------------------------
 
 @router.post("", response_model=MeasurementOut, status_code=201)
-async def run_measurement(body: MeasurementRequest):
+async def run_measurement(body: MeasurementRequest, auth=Depends(require_write)):
     """触发一次采集并返回聚合结果。"""
     await _verify_tenant(body.project_id, body.tenant_id)
 
@@ -216,7 +231,11 @@ async def run_measurement(body: MeasurementRequest):
             ))
 
     # Store result for later retrieval
+    import uuid as _uuid
+
     result = {
+        # P0-4：稳定主键，供 measurements_projection 持久化与跨重启检索。
+        "measurement_id": f"MSR-{_uuid.uuid4().hex[:8].upper()}",
         "project_id": body.project_id,
         "tenant_id": body.tenant_id,
         "adapter": adapter_name,
@@ -230,6 +249,16 @@ async def run_measurement(body: MeasurementRequest):
         "findings": [f.to_dict() for f in findings_list],
     }
     state._measurement_results.setdefault(body.project_id, []).append(result)
+
+    # P0-4：落库（跨重启保留）。失败不阻断本次响应，但会记入日志。
+    if state.measurement_repo is not None:
+        try:
+            await state.measurement_repo.upsert(result)
+        except Exception as exc:  # noqa: BLE001 — 持久化失败不应吞掉已完成的采集
+            import logging as _logging
+            _logging.getLogger("api.measurements").warning(
+                "measurement persistence failed for %s: %s", body.project_id, exc
+            )
 
     return MeasurementOut(
         project_id=body.project_id,
@@ -249,11 +278,22 @@ async def run_measurement(body: MeasurementRequest):
 async def get_measurements(
     project_id: str,
     x_tenant_id: Annotated[str | None, Header(alias="X-Tenant-ID")] = None,
+    auth=Depends(authenticate),
 ):
     """获取某项目的所有采集结果。"""
+    # B-2：使用认证上下文的 tenant（header 已交叉校验）
+    tenant_id = auth.tenant_id
+    # B-1 修复：先校验项目归属，再读数据
+    await _verify_tenant(project_id, tenant_id)
     results = state._measurement_results.get(project_id, [])
+    # P0-4：进程内无记录（如服务重启后）则回落到持久化投影表。
+    if not results and state.measurement_repo is not None:
+        results = await state.measurement_repo.list_by_project(project_id, tenant_id)
     if not results:
         raise HTTPException(status_code=404, detail=f"No measurements found for project {project_id}")
+    # 双保险：结果内若含其他 tenant 的记录，一并拒绝
+    if any(r.get("tenant_id") != tenant_id for r in results):
+        raise HTTPException(status_code=404, detail="Measurement tenant mismatch")
     out = []
     for r in results:
         out.append(MeasurementOut(

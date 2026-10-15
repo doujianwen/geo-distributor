@@ -11,10 +11,11 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from .. import state
+from ..deps import authenticate, require_write
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
@@ -69,14 +70,14 @@ def _get_sync_service():
 # ------------------------------------------------------------------
 
 @router.get("/status")
-async def sync_status(brand: Optional[str] = None):
+async def sync_status(brand: Optional[str] = None, auth=Depends(authenticate)):
     """查看同步水位。不带 brand 则返回全局概览。"""
     svc = _get_sync_service()
     return svc.get_status(brand)
 
 
 @router.get("/brands")
-async def list_brands():
+async def list_brands( auth=Depends(authenticate)):
     """列出 geo-collector DB 中可同步的品牌。"""
     svc = _get_sync_service()
     brands = svc.list_brands()
@@ -93,7 +94,7 @@ async def list_brands():
 
 
 @router.post("", response_model=SyncResponse)
-async def run_sync(body: SyncRequest):
+async def run_sync(body: SyncRequest, auth=Depends(require_write)):
     """触发一次增量同步。
 
     以 observation_id 集合差分判定新增，水位持久化到 exports/sync_state.json。
@@ -120,7 +121,7 @@ async def run_sync(body: SyncRequest):
 
 
 @router.post("/reset")
-async def reset_sync(body: ResetRequest):
+async def reset_sync(body: ResetRequest, auth=Depends(require_write)):
     """清除同步水位（下次同步视为全量）。"""
     svc = _get_sync_service()
     svc.reset(body.brand)

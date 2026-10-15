@@ -34,8 +34,9 @@ class QAResult:
 class ReportService:
     """报告服务 — 生成 Client-safe Report。"""
 
-    def __init__(self):
+    def __init__(self, repository=None):
         self._reports: Dict[str, Dict[str, Any]] = {}
+        self._repository = repository
 
     async def create_report(
         self,
@@ -118,7 +119,10 @@ class ReportService:
             "updated_at": datetime.now().isoformat(),
         }
 
-        self._reports[report_id] = report
+        if self._repository is not None:
+            await self._repository.upsert(report)
+        else:
+            self._reports[report_id] = report
         logger.info("Report created: %s for project %s", report_id, project_id)
 
         return report
@@ -142,13 +146,22 @@ class ReportService:
             f"Recommended actions: {action}."
         )
 
-    async def get_report(self, report_id: str) -> Optional[Dict[str, Any]]:
-        """获取报告。"""
-        return self._reports.get(report_id)
+    async def get_report(self, report_id: str, tenant_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """获取报告，并在持久化路径下按 tenant 做源头隔离。"""
+        if self._repository is not None:
+            return await self._repository.get(report_id, tenant_id=tenant_id)
+        report = self._reports.get(report_id)
+        if report is not None and tenant_id is not None and report.get("tenant_id") != tenant_id:
+            return None
+        return report
 
-    async def list_reports(self, project_id: str) -> List[Dict[str, Any]]:
-        """列出项目的所有报告。"""
-        return [r for r in self._reports.values() if r["project_id"] == project_id]
+    async def list_reports(self, project_id: str, tenant_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """列出项目报告；持久化路径按 tenant + project 双键过滤。"""
+        if self._repository is not None:
+            if tenant_id is None:
+                return []
+            return await self._repository.list_by_project(project_id, tenant_id)
+        return [r for r in self._reports.values() if r["project_id"] == project_id and (tenant_id is None or r.get("tenant_id") == tenant_id)]
 
 
 class DeliveryService:

@@ -8,6 +8,37 @@
 
 ---
 
+## 0. 实现状态（2026-10-09 追加）
+
+> **本规范已于 2026-10-09 落地实现。** 本节为追加记录，不修改下文任何设计条款。
+
+| 项 | 值 |
+|---|---|
+| **状态** | `IMPLEMENTED`（Commercial V1 · P0-2，Decision B 有限解冻） |
+| **代码位置** | `api/ui.py`（BFF）+ `ui/{index.html,app.css,app.js}` |
+| **入口** | `GET /ui/` |
+| **实现范围** | 登录 · 概览 Dashboard · 我的客户 · 我的项目 · 项目详情（状态 / 四阶段 / 报告） |
+| **§1.2 明确不做的项** | 全部遵守：无 Query Builder / Sampling UI / Measurement Console / Diagnosis Console / RawResponse 查看 / Evidence 评分 / CRM / Billing / Commission Engine |
+
+### 0.1 关键实现决策（与本文档设计原则的对应）
+
+| 本文档原则 | 实现方式 |
+|---|---|
+| §1.1-1「Portal 不调用 HQ 内部 API，只通过 Service Contract 通信」 | 全部经既有 `/clients` `/projects` `/reports` `/measurements` 契约，**零新增业务端点**（唯一新增 `/projects/{id}/deliver` 属 HQ 侧，非 Portal） |
+| §1.1-2「技术真相不在 Portal 存储」 | Portal **无任何自有存储**；仅渲染既有 API 返回的 client-safe 报告 |
+| §1.1-3「不暴露技术细节」 | 仅展示 Executive Summary / Key Findings / Limitations / Next Steps；不展示 RawResponse 与证据评级 |
+| Stage-1 §2「不向浏览器暴露 Key」 | **BFF 模式**：浏览器只持 HttpOnly+SameSite=strict 会话 cookie；API Key 仅存服务端内存，由 `/ui/proxy/*` 服务端注入 |
+
+### 0.2 实现期发现并修复的缺陷（详见验收报告 §5）
+
+RT-01 登录端点无暴力枚举防护 · RT-02 `/clients/{id}/portal` 经 BFF 恒 403 ·
+RT-03 `progress_percent` 死字段恒显 0% · RT-04 报告 `key_findings` 未渲染 ·
+RT-09 `/deliver` 无幂等 + `version` 硬编码。
+
+**验收证据**：`E:/xampp/COMMERCIAL-V1-ACCEPTANCE-REPORT-V1.0.md`
+
+---
+
 ## 1. 设计原则
 
 > **Distributor sells; HQ delivers.**

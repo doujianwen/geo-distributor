@@ -42,6 +42,9 @@ class ProjectService:
         # 创建 Request
         biz_context = BusinessContext(
             target_market=business_context.get("target_market", []),
+            market_scope=business_context.get("market_scope", "unspecified"),
+            target_languages=business_context.get("target_languages", []),
+            service_duration=business_context.get("service_duration", "to_be_determined"),
             target_products=business_context.get("target_products", []),
             target_customer=business_context.get("target_customer", ""),
             known_competitors=business_context.get("known_competitors", []),
@@ -136,7 +139,8 @@ class ProjectService:
         from ..models.request import RequestStatus
         from ..models.project import Project, ProjectStatus
 
-        request = await self._request_repo.find_by_id(request_id)
+        # B-3: 内部流程，显式使用 unscoped 读取（该路径由状态机 + approver_id 守卫，非 tenant-facing API）
+        request = await self._request_repo.find_by_id_unscoped(request_id)
         if not request:
             raise ValueError(f"Request {request_id} not found")
 

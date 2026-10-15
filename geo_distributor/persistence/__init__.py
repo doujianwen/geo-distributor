@@ -31,16 +31,20 @@ from .sqlite_repository import (
     SQLiteClientRepository,
     SQLiteProjectRepository,
     SQLiteRequestRepository,
+    SQLiteJSONRepository,
     get_default_db_path,
     is_persistence_enabled,
     resolve_db_path,
 )
+from .json_store import InMemoryJSONRepository
 
 __all__ = [
     "SQLiteRepository",
     "SQLiteClientRepository",
     "SQLiteProjectRepository",
     "SQLiteRequestRepository",
+    "SQLiteJSONRepository",
+    "InMemoryJSONRepository",
     "get_default_db_path",
     "is_persistence_enabled",
     "resolve_db_path",

@@ -1,0 +1,72 @@
+[
+  {
+    "prompt_id": 1,
+    "text": "Best GEO course for marketers in 2026",
+    "category": "GEO课程意向",
+    "intent": "GEO课程意向",
+    "location": ""
+  },
+  {
+    "prompt_id": 3,
+    "text": "What is GEO and how is it different from SEO?",
+    "category": "GEO概念意向",
+    "intent": "GEO概念意向",
+    "location": ""
+  },
+  {
+    "prompt_id": 6,
+    "text": "free reading apps",
+    "category": "阅读器App",
+    "intent": "阅读器App",
+    "location": ""
+  },
+  {
+    "prompt_id": 11,
+    "text": "convertir epub a mobi",
+    "category": "转换意图（西语）",
+    "intent": "转换意图（西语）",
+    "location": ""
+  },
+  {
+    "prompt_id": 18,
+    "text": "what format does kindle use",
+    "category": "Kindle格式",
+    "intent": "Kindle格式",
+    "location": ""
+  },
+  {
+    "prompt_id": 26,
+    "text": "can kobo read epub files",
+    "category": "格式兼容",
+    "intent": "can-kobo-read-epub",
+    "location": ""
+  },
+  {
+    "prompt_id": 29,
+    "text": "how to convert epub to pdf without losing formatting",
+    "category": "转换教程",
+    "intent": "epub-to-pdf-no-format",
+    "location": ""
+  },
+  {
+    "prompt_id": 39,
+    "text": "epub vs mobi which is better",
+    "category": "格式对比",
+    "intent": "epub-vs-mobi",
+    "location": ""
+  },
+  {
+    "prompt_id": 46,
+    "text": "harry potter digital books which format for multiple devices",
+    "category": "IP场景",
+    "intent": "harry-potter-format",
+    "location": ""
+  },
+  {
+    "prompt_id": 50,
+    "text": "how to make epub from pdf keeping images",
+    "category": "场景",
+    "intent": "epub-from-pdf-images",
+    "location": ""
+  }
+]

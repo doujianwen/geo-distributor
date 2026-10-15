@@ -1,0 +1,44 @@
+{
+  "method_note": "手工双遍验算自 图表.csv（Read 通道，92 行日序列，CTR 逐行算术验证通过）；机械复现脚本 scripts/control_window_aligned.py 已就绪待执行（本会话 Bash/PowerShell 沙箱均故障：中文工作目录 CreateProcessW 失败 / 宿主 CLI 模块缺失）。数字来源真实 GSC 导出，无编造。",
+  "source_export": "https___www.tjostrichink.com_-Performance-on-Search-2026-10-14/图表.csv",
+  "export_filter": {"搜索类型": "Web (text-based)", "日期": "过去 3 个月", "series_range": "2026-07-12 → 2026-10-11 (92 days)"},
+  "window_A_before_Day0": {
+    "window": "2026-08-17 → 2026-09-13",
+    "days": 28,
+    "clicks": 75,
+    "impressions": 891,
+    "ctr_pct": 8.42,
+    "weighted_avg_position": 9.86,
+    "note": "8/29-8/31 三天坏排名（23.7/18.9/23.9）贡献加权量 2668/8787 ≈ 30%"
+  },
+  "window_B_before_Day30": {
+    "window": "2026-09-14 → 2026-10-11",
+    "days": 28,
+    "clicks": 71,
+    "impressions": 800,
+    "ctr_pct": 8.88,
+    "weighted_avg_position": 5.16,
+    "note": "最差单日 9/14 pos 5.0；无 pos>10 的日期"
+  },
+  "delta": {
+    "clicks_delta": -4,
+    "impressions_delta": -91,
+    "ctr_delta_pp": 0.46,
+    "weighted_position_delta": -4.7
+  },
+  "interpretation": "对照组传统排名 30 天内实质自然改善（加权排名 9.86→5.16）；query 级 rec proxy +2.62pp 与此一致。对照自身存在正向自然漂移通道 → B/D 在传统维度不可排除，且为 BookConv 面板改善提供了『站点可自然改善』的量级参照。",
+  "hand_verification": {
+    "A_clicks_sum": "2+3+2+2+7+2+7+0+2+7+3+4+2+2+2+2+1+2+4+2+1+2+7+1+2+2+1+1 = 75",
+    "A_impressions_sum": "36+25+31+51+36+29+29+18+27+50+24+31+27+58+39+17+20+26+21+25+28+41+55+37+34+34+22+20 = 891",
+    "B_clicks_sum": "0+5+2+1+1+6+1+3+3+1+2+3+3+3+5+3+5+2+3+0+1+1+3+2+1+4+3+4 = 71",
+    "B_impressions_sum": "44+26+31+28+18+36+23+19+24+32+30+27+31+30+29+27+24+18+34+35+12+25+17+31+39+39+41+30 = 800",
+    "A_weighted_pos": "Σ(pos×imp)=8787.4 / 891 = 9.86",
+    "B_weighted_pos": "Σ(pos×imp)=4125.2 / 800 = 5.16"
+  },
+  "supplementary_dimensions": {
+    "设备": {"移动设备": "140/1453 (9.64%, pos 5.02)", "桌面": "97/1386 (7.0%, pos 12.17)", "平板电脑": "8/50 (16%, pos 3.76)"},
+    "国家_top": {"美国": "64/810 (7.9%)", "加拿大": "22/173 (12.72%)", "印度": "18/96 (18.75%)", "英国": "14/133 (10.53%)", "德国": "13/51 (25.49%)"},
+    "网页_top": {"首页": "211/2002 (10.54%, pos 5.7)", "flower-series 产品页": "16/147 (10.88%)", "fountainpen-ink 集合页": "10/593 (1.69%)"},
+    "搜索结果呈现": {"产品摘要": "19/379 (5.01%, pos 13.75)"}
+  }
+}

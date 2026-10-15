@@ -49,6 +49,9 @@ REQUEST_TRANSITIONS = {
 class BusinessContext:
     """商业背景信息（Distributor 提供）。"""
     target_market: List[str] = field(default_factory=list)
+    market_scope: str = "unspecified"  # single / multi / global / unspecified for legacy records
+    target_languages: List[str] = field(default_factory=list)
+    service_duration: str = "to_be_determined"
     target_products: List[str] = field(default_factory=list)
     target_customer: str = ""
     known_competitors: List[str] = field(default_factory=list)
@@ -59,6 +62,9 @@ class BusinessContext:
         """序列化（ServiceRequest.to_dict 依赖本方法）。"""
         return {
             "target_market": self.target_market,
+            "market_scope": self.market_scope,
+            "target_languages": self.target_languages,
+            "service_duration": self.service_duration,
             "target_products": self.target_products,
             "target_customer": self.target_customer,
             "known_competitors": self.known_competitors,

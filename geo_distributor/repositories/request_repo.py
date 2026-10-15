@@ -19,11 +19,14 @@ class RequestRepository(InMemoryRepository):
         self._by_tenant: dict = {}  # tenant_id -> set of request_ids
 
     async def find_by_id(self, request_id: str, tenant_id: Optional[str] = None) -> Optional["ServiceRequest"]:  # type: ignore
-        """查找 Request。如果提供 tenant_id，必须验证归属。"""
+        """查找 Request。向后兼容签名（不带 tenant 可查到）。
+
+        ⚠️ 该方法**不提供租户隔离保证**，仅供内部流程与既有契约使用。
+        tenant-facing API 必须使用 `find_by_id_scoped`（tenant 必填、不符返回 None）。
+        """
         entity = await super().find_by_id(request_id)
         if entity is None:
             return None
-        # 安全验证：如果提供了 tenant_id，必须匹配
         if tenant_id and entity.tenant_id != tenant_id:
             logger.warning("Tenant mismatch: requested %s for tenant %s, belongs to %s",
                           request_id, tenant_id, entity.tenant_id)
@@ -31,6 +34,45 @@ class RequestRepository(InMemoryRepository):
                 f"Access denied: Request {request_id} belongs to tenant {entity.tenant_id}, "
                 f"not {tenant_id}"
             )
+        return entity  # type: ignore
+
+    async def find_by_id_unscoped(self, request_id: str) -> Optional["ServiceRequest"]:  # type: ignore
+        """内部流程专用：无租户作用域的读取。
+
+        仅供受状态机守卫保护的内部路径使用（如 approve_scope）。
+        **不得**用于任何 tenant-facing API 路径。
+        """
+        return await super().find_by_id(request_id)
+
+    async def find_by_id_scoped(self, request_id: str, tenant_id: str) -> Optional["ServiceRequest"]:  # type: ignore
+        """B-3 修复：强制租户作用域的查询。
+
+        `find_by_id` 的 tenant_id 是 Optional，省略即等于「看到全部」——
+        这让任何忘记传 tenant 的调用都变成跨租户泄漏（correlated-ID 攻击）。
+
+        本方法是 tenant-facing API 唯一应使用入口：
+        - tenant_id 必填
+        - 租户不符返回 None（不抛异常，避免异常消息泄漏目标 tenant_id）
+
+        内部流程（如 approve_scope）可继续用 find_by_id —— 那条路径
+        由状态机守卫 + approver_id 角色控制，不暴露为 HTTP API。
+        """
+        if not tenant_id or not str(tenant_id).strip():
+            # 空 tenant = 拒绝（返回 None 而非抛异常：异常会进入API 响应体）
+            logger.warning(
+                "B-3: find_by_id_scoped called without tenant for %s; denying",
+                request_id,
+            )
+            return None
+        entity = await super().find_by_id(request_id)
+        if entity is None:
+            return None
+        if getattr(entity, "tenant_id", None) != tenant_id:
+            logger.warning(
+                "Tenant mismatch: request %s requested by tenant %s, belongs to %s",
+                request_id, tenant_id, getattr(entity, "tenant_id", None),
+            )
+            return None
         return entity  # type: ignore
 
     async def find_by_tenant(self, tenant_id: str) -> List["ServiceRequest"]:  # type: ignore

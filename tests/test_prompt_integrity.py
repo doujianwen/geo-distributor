@@ -2,7 +2,7 @@
 
 背景（真实缺陷）：
     DistributionService 走 GeoCollectorDBAdapter 采集，适配器只按
-    prompt_id 查库。config/prompts_hydroviv.json 原先用了自建编号
+    prompt_id 查库。config/prompts_*.json 原先用了自建编号
     （prompt_id 1-10 对应 "best water filter for home" 之类），而数据源
     里 prompt_id 1-10 是完全不同的问题。结果 Run 显示 10/10 采集成功，
     报告的 mention_rate 衡量的却是另一批 prompt 的数据——
@@ -231,8 +231,10 @@ def test_run_succeeds_when_prompts_are_aligned():
 
 
 def test_shipped_prompts_file_matches_live_datasource():
-    """config/prompts_hydroviv.json 的 prompt_id/text 必须与 geo-collector 一致。
+    """config/prompts_bookconv.json 的 prompt_id/text 必须与 geo-collector 一致。
 
+    2026-10-06：主攻方向切到 BookConv，原 prompts_hydroviv.json 及其
+    545 条 Hydroviv 观测已从数据源清理，故fixture 换为 BookConv 版。
     数据源不可用时跳过（不造数据，不假装通过）。
     """
     try:
@@ -243,7 +245,7 @@ def test_shipped_prompts_file_matches_live_datasource():
     db_path = os.path.join(get_geo_collector_root(), "geo_collector.db")
     cfg = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "config", "prompts_hydroviv.json",
+        "config", "prompts_bookconv.json",
     )
     if not (os.path.exists(db_path) and os.path.exists(cfg)):
         pytest.skip("geo-collector.db 或 prompts 文件不存在")
