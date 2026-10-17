@@ -184,10 +184,37 @@ class DeliveryService:
         """执行完整交付流程。
 
         流程：
+        0. 幂等检查（RA-10）：同 (project, tenant, scope_version) 已有已交付报告
+           时直接返回既有报告，不创建重复交付。
         1. 创建 Report
         2. 执行 QA
         3. 发布 Delivery
         """
+        # 0. 幂等守卫：重复交付返回既有报告（RA-10 修复 · 2026-10-17）
+        existing = await self._find_delivered_report(project_id, tenant_id, scope_version)
+        if existing is not None:
+            delivery_id = f"DLV-{existing['report_id']}"
+            delivery = {
+                "delivery_id": delivery_id,
+                "project_id": project_id,
+                "report_id": existing["report_id"],
+                "report_version": existing["version"],
+                "scope_version": existing["scope_version"],
+                "qa_result": {"passed": True, "issues": [], "warnings": [
+                    "idempotent-replay: existing report returned for the same "
+                    "(project, tenant, scope_version); no new report created"
+                ]},
+                "status": "ALREADY_DELIVERED",
+                "created_at": existing["created_at"],
+                "created_by": existing["created_by"],
+            }
+            logger.info(
+                "Idempotent replay: report %s already delivered for project %s "
+                "(scope_version=%s); no new report created",
+                existing["report_id"], project_id, scope_version,
+            )
+            return delivery
+
         # 1. 创建报告
         report = await self.report_service.create_report(
             project_id=project_id,
@@ -225,6 +252,26 @@ class DeliveryService:
         logger.info("Delivery created: %s for project %s (QA: %s)", delivery_id, project_id, "PASS" if qa_result.passed else "FAIL")
 
         return delivery
+
+    async def _find_delivered_report(
+        self,
+        project_id: str,
+        tenant_id: str,
+        scope_version: int,
+    ) -> Optional[Dict[str, Any]]:
+        """查找同 (project, tenant, scope_version) 的既有已交付报告（RA-10 幂等）。
+
+        持久化与内存两种仓储模式统一走 report_service.list_reports()，
+        该方法已内置 tenant 过滤，不会跨租户命中。
+        """
+        try:
+            reports = await self.report_service.list_reports(project_id, tenant_id=tenant_id)
+        except Exception:  # noqa: BLE001 — 幂等检查失败不应阻断正常交付
+            return None
+        for r in reports:
+            if r.get("scope_version") == scope_version:
+                return r
+        return None
 
     async def _run_qa(self, report: Dict[str, Any], observations: List[Dict[str, Any]], findings: List[Dict[str, Any]]) -> QAResult:
         """执行 QA 检查。"""
