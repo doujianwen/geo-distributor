@@ -196,17 +196,24 @@ class SQLiteRepository:
 class SQLiteJSONRepository:
     """Persistent store for service projections; no new domain entity."""
 
-    def __init__(self, table: str, db_path: Optional[str] = None, id_key: str = "report_id"):
+    def __init__(self, table: str, db_path: Optional[str] = None, id_key: str = "report_id",
+                 scope_unique: bool = False):
         """id_key：payload 中充当主键的字段名。
 
         默认 "report_id" 保持既有 reports_projection 行为不变；
         measurements_projection 传入 "measurement_id"。
+
+        scope_unique（RA-10 加固 · 2026-10-17）：为 True 时给表增加 scope_version 列
+        并建立 UNIQUE(project_id, tenant_id, scope_version) 唯一索引，使交付幂等
+        「查后再插」的并发竞态在存储层被原子约束兜底。仅 reports_projection 启用；
+        measurements_projection / leads_intake 允许同键多行，保持 False。
         """
         if not table.isidentifier():
             raise ValueError("Invalid SQLite table name")
         if not id_key.isidentifier():
             raise ValueError("Invalid id_key")
         self.id_key = id_key
+        self.scope_unique = scope_unique
         self.table = table
         self.db_path = db_path or os.environ.get(_ENV_DB) or get_default_db_path()
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
@@ -215,9 +222,40 @@ class SQLiteJSONRepository:
             try:
                 conn.execute(f"CREATE TABLE IF NOT EXISTS {self.table} (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, project_id TEXT NOT NULL, payload TEXT NOT NULL, updated_at TEXT NOT NULL)")
                 conn.execute(f"CREATE INDEX IF NOT EXISTS idx_{self.table}_tenant_project ON {self.table}(tenant_id, project_id)")
+                if self.scope_unique:
+                    self._ensure_scope_unique(conn)
                 conn.commit()
             finally:
                 conn.close()
+
+    def _ensure_scope_unique(self, conn: sqlite3.Connection) -> None:
+        """RA-10 加固：scope_version 列迁移 + 唯一索引（幂等可重复执行）。
+
+        迁移冲突（存量重复行）时显式失败并指引用专用脚本去重，
+        绝不静默吞掉——静默等于假门禁。
+        """
+        cols = [r["name"] for r in conn.execute(f"PRAGMA table_info({self.table})").fetchall()]
+        if "scope_version" not in cols:
+            conn.execute(f"ALTER TABLE {self.table} ADD COLUMN scope_version INTEGER")
+            conn.execute(
+                f"UPDATE {self.table} SET scope_version = json_extract(payload, '$.scope_version')"
+            )
+        dup = conn.execute(
+            f"SELECT project_id, tenant_id, scope_version FROM {self.table} "
+            f"WHERE scope_version IS NOT NULL "
+            f"GROUP BY project_id, tenant_id, scope_version HAVING COUNT(*) > 1"
+        ).fetchone()
+        if dup:
+            raise RuntimeError(
+                f"{self.table} contains duplicate (project_id, tenant_id, scope_version) rows "
+                f"(e.g. project={dup['project_id']}, tenant={dup['tenant_id']}, "
+                f"scope={dup['scope_version']}); run scripts/ra10_dedupe_reports.py "
+                f"--db {self.db_path} before starting with scope_unique enabled"
+            )
+        conn.execute(
+            f"CREATE UNIQUE INDEX IF NOT EXISTS ux_{self.table}_ptv "
+            f"ON {self.table}(project_id, tenant_id, scope_version)"
+        )
 
     def _connect(self):
         conn = sqlite3.connect(self.db_path, check_same_thread=False)
@@ -229,7 +267,15 @@ class SQLiteJSONRepository:
         with _lock:
             conn = self._connect()
             try:
-                conn.execute(f"INSERT INTO {self.table} (id, tenant_id, project_id, payload, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET tenant_id=excluded.tenant_id, project_id=excluded.project_id, payload=excluded.payload, updated_at=excluded.updated_at", (payload[self.id_key], payload["tenant_id"], payload["project_id"], json.dumps(payload, ensure_ascii=False), now))
+                if self.scope_unique:
+                    conn.execute(
+                        f"INSERT INTO {self.table} (id, tenant_id, project_id, scope_version, payload, updated_at) "
+                        f"VALUES (?, ?, ?, ?, ?, ?) "
+                        f"ON CONFLICT(id) DO UPDATE SET tenant_id=excluded.tenant_id, project_id=excluded.project_id, scope_version=excluded.scope_version, payload=excluded.payload, updated_at=excluded.updated_at",
+                        (payload[self.id_key], payload["tenant_id"], payload["project_id"], payload.get("scope_version"), json.dumps(payload, ensure_ascii=False), now),
+                    )
+                else:
+                    conn.execute(f"INSERT INTO {self.table} (id, tenant_id, project_id, payload, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET tenant_id=excluded.tenant_id, project_id=excluded.project_id, payload=excluded.payload, updated_at=excluded.updated_at", (payload[self.id_key], payload["tenant_id"], payload["project_id"], json.dumps(payload, ensure_ascii=False), now))
                 conn.commit()
             finally:
                 conn.close()
@@ -246,10 +292,16 @@ class SQLiteJSONRepository:
         with _lock:
             conn = self._connect()
             try:
-                cursor = conn.execute(
-                    f"INSERT OR IGNORE INTO {self.table} (id, tenant_id, project_id, payload, updated_at) VALUES (?, ?, ?, ?, ?)",
-                    (entity_id, payload["tenant_id"], payload["project_id"], json.dumps(payload, ensure_ascii=False), now),
-                )
+                if self.scope_unique:
+                    cursor = conn.execute(
+                        f"INSERT OR IGNORE INTO {self.table} (id, tenant_id, project_id, scope_version, payload, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+                        (entity_id, payload["tenant_id"], payload["project_id"], payload.get("scope_version"), json.dumps(payload, ensure_ascii=False), now),
+                    )
+                else:
+                    cursor = conn.execute(
+                        f"INSERT OR IGNORE INTO {self.table} (id, tenant_id, project_id, payload, updated_at) VALUES (?, ?, ?, ?, ?)",
+                        (entity_id, payload["tenant_id"], payload["project_id"], json.dumps(payload, ensure_ascii=False), now),
+                    )
                 created = cursor.rowcount == 1
                 conn.commit()
                 row = conn.execute(f"SELECT payload FROM {self.table} WHERE id = ?", (entity_id,)).fetchone()

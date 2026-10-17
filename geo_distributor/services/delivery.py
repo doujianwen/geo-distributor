@@ -9,10 +9,17 @@
 
 from typing import Optional, Dict, Any, List
 import logging
+import sqlite3
 import uuid
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+
+class DuplicateReportError(RuntimeError):
+    """RA-10 加固（2026-10-17）：存储层 UNIQUE(project_id, tenant_id, scope_version)
+    约束命中——并发交付竞态由唯一约束兜底时抛出，由 execute_delivery 回退返回既有报告。
+    """
 
 
 class QAResult:
@@ -120,7 +127,20 @@ class ReportService:
         }
 
         if self._repository is not None:
-            await self._repository.upsert(report)
+            try:
+                await self._repository.upsert(report)
+            except sqlite3.IntegrityError as exc:
+                # RA-10 加固：并发交付同时通过「查后再插」窗口时，
+                # 存储层唯一约束保证只有第一个落库成功，其余在此转为幂等回放。
+                logger.warning(
+                    "Report insert hit UNIQUE(project, tenant, scope_version) constraint "
+                    "(project=%s tenant=%s scope_version=%s); concurrent delivery raced: %s",
+                    project_id, tenant_id, scope_version, exc,
+                )
+                raise DuplicateReportError(
+                    f"report for ({project_id}, {tenant_id}, scope_version={scope_version}) "
+                    f"already exists (storage-level idempotency)"
+                ) from exc
         else:
             self._reports[report_id] = report
         logger.info("Report created: %s for project %s", report_id, project_id)
@@ -193,37 +213,29 @@ class DeliveryService:
         # 0. 幂等守卫：重复交付返回既有报告（RA-10 修复 · 2026-10-17）
         existing = await self._find_delivered_report(project_id, tenant_id, scope_version)
         if existing is not None:
-            delivery_id = f"DLV-{existing['report_id']}"
-            delivery = {
-                "delivery_id": delivery_id,
-                "project_id": project_id,
-                "report_id": existing["report_id"],
-                "report_version": existing["version"],
-                "scope_version": existing["scope_version"],
-                "qa_result": {"passed": True, "issues": [], "warnings": [
-                    "idempotent-replay: existing report returned for the same "
-                    "(project, tenant, scope_version); no new report created"
-                ]},
-                "status": "ALREADY_DELIVERED",
-                "created_at": existing["created_at"],
-                "created_by": existing["created_by"],
-            }
-            logger.info(
-                "Idempotent replay: report %s already delivered for project %s "
-                "(scope_version=%s); no new report created",
-                existing["report_id"], project_id, scope_version,
-            )
-            return delivery
+            return self._replay_delivery(existing)
 
-        # 1. 创建报告
-        report = await self.report_service.create_report(
-            project_id=project_id,
-            tenant_id=tenant_id,
-            scope_version=scope_version,
-            observations=observations,
-            findings=findings,
-            created_by=executed_by,
-        )
+        # 1. 创建报告（RA-10 加固：并发竞态由存储层唯一约束兜底，
+        #    落库冲突时回退返回既有报告，杜绝重复交付）
+        try:
+            report = await self.report_service.create_report(
+                project_id=project_id,
+                tenant_id=tenant_id,
+                scope_version=scope_version,
+                observations=observations,
+                findings=findings,
+                created_by=executed_by,
+            )
+        except DuplicateReportError:
+            raced = await self._find_delivered_report(project_id, tenant_id, scope_version)
+            if raced is None:
+                raise
+            logger.info(
+                "Concurrent delivery race resolved by storage unique constraint; "
+                "returning existing report %s for project %s (scope_version=%s)",
+                raced["report_id"], project_id, scope_version,
+            )
+            return self._replay_delivery(raced)
 
         # 2. 执行 QA
         qa_result = await self._run_qa(report, observations, findings)
@@ -252,6 +264,29 @@ class DeliveryService:
         logger.info("Delivery created: %s for project %s (QA: %s)", delivery_id, project_id, "PASS" if qa_result.passed else "FAIL")
 
         return delivery
+
+    def _replay_delivery(self, existing: Dict[str, Any]) -> Dict[str, Any]:
+        """由既有报告构造幂等回放响应（RA-10；顺序重放与并发竞态回退共用）。"""
+        delivery_id = f"DLV-{existing['report_id']}"
+        logger.info(
+            "Idempotent replay: report %s already delivered for project %s "
+            "(scope_version=%s); no new report created",
+            existing["report_id"], existing.get("project_id"), existing.get("scope_version"),
+        )
+        return {
+            "delivery_id": delivery_id,
+            "project_id": existing["project_id"],
+            "report_id": existing["report_id"],
+            "report_version": existing["version"],
+            "scope_version": existing["scope_version"],
+            "qa_result": {"passed": True, "issues": [], "warnings": [
+                "idempotent-replay: existing report returned for the same "
+                "(project, tenant, scope_version); no new report created"
+            ]},
+            "status": "ALREADY_DELIVERED",
+            "created_at": existing["created_at"],
+            "created_by": existing["created_by"],
+        }
 
     async def _find_delivered_report(
         self,

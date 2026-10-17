@@ -1,0 +1,33 @@
+# requirements.lock — GEO 渠道商演示环境依赖锁定（RA-03 整改产物）
+# 任务: GGS-REMAINING-RELEASE-BLOCKERS-CLOSURE-20261017-V2
+# 生成: 2026-10-17，来源 = 已验证可运行的 .venv（distributor 持久化实例同款依赖）
+# 用途: 隔离环境可复现构建 —— pip install -r requirements.lock
+# 注意: requirements.txt 保留浮动约束（开发用）；发布/复现一律以本锁文件为准。
+
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+certifi==2026.7.22
+click==8.5.0
+colorama==0.4.6
+fastapi==0.141.1
+greenlet==3.5.5
+h11==0.16.0
+httpcore==1.0.9
+httpx==0.28.1
+idna==3.19
+iniconfig==2.3.0
+packaging==26.3
+playwright==1.62.0
+pluggy==1.6.0
+pydantic==2.13.5
+pydantic_core==2.46.5
+pyee==13.0.1
+Pygments==2.21.0
+pytest==9.1.1
+pytest-asyncio==1.4.0
+PyYAML==6.0.3
+starlette==1.6.0
+typing-inspection==0.4.4
+typing_extensions==4.16.0
+uvicorn==0.53.0

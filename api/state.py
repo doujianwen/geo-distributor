@@ -95,7 +95,9 @@ def init_repositories(db_path: str | None = None) -> None:
         client_repo = SQLiteClientRepository(resolved_db)
         project_repo = SQLiteProjectRepository(resolved_db)
         request_repo = SQLiteRequestRepository(resolved_db)
-        report_repo = SQLiteJSONRepository("reports_projection", resolved_db)
+        # RA-10 加固（2026-10-17）：scope_unique=True → UNIQUE(project, tenant, scope_version)
+        # 存储层唯一约束，并发交付竞态原子兜底（见 persistence/sqlite_repository.py）。
+        report_repo = SQLiteJSONRepository("reports_projection", resolved_db, scope_unique=True)
         # P0-4：采集结果持久化（跨重启保留），与 reports_projection 同构。
         measurement_repo = SQLiteJSONRepository(
             "measurements_projection", resolved_db, id_key="measurement_id"

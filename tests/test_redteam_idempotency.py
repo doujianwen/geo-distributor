@@ -1,129 +1,156 @@
-"""Sprint 0 Red-Team: Idempotency 攻击测试。
+"""RA-10 加固红队测试：真实交付路径（DeliveryService.execute_delivery）幂等验证。
 
-攻击向量：
-- 同Key同Payload → 返回原结果（不创建重复）
-- 同Key不同Payload → 409冲突
-- 第一次失败后重试 → 无partial duplicate
-- 并发重复请求 → 只产生一个对象
-- Key过期后 → 允许新请求
+历史教训（2026-10-17）：本文件旧版测的是 IdempotencyGuard——一个从未接入
+交付路径的死代码，6 个用例恒绿却零保护，构成「假门禁」。本版全部对准真实路径：
+
+  - 顺序重放：同 (project, tenant, scope_version) → ALREADY_DELIVERED，无重复
+  - 不同 scope_version → 正常新建
+  - 并发（asyncio.gather）：恰 1 个 DELIVERED，其余回放；存储层唯一约束兜底
+  - 存储层竞态回退：create_report 抛 DuplicateReportError → 返回既有报告
+  - 跨重启持久性：新建服务实例（同 DB）重放仍幂等（查 DB 而非内存）
+  - 迁移防护：存量重复行时 scope_unique 初始化显式失败（不静默）
 """
 
-import pytest
+import asyncio
+import sqlite3
 import sys
 from pathlib import Path
-import asyncio
-from datetime import datetime, timedelta
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from geo_distributor.guards.idempotency import IdempotencyGuard
+from geo_distributor.persistence.sqlite_repository import SQLiteJSONRepository
+from geo_distributor.services.delivery import DeliveryService, DuplicateReportError, ReportService
+
+OBS = [{"k": "v", "brand_mentioned": True, "recommendation_level": 2}]
+FIND = [{"finding_id": "F1", "category": "c", "severity": "low", "statement": "s", "recommendation": "r"}]
 
 
-class TestIdempotencyCorrectness:
-    """测试幂等性正确性。"""
-
-    def test_same_key_same_payload_returns_original(self):
-        """同Key同Payload → 返回原结果。"""
-        guard = IdempotencyGuard()
-        payload = {"client_id": "CLI-001", "service": "visibility_audit"}
-        result = {"request_id": "SR-001", "status": "SUBMITTED"}
-
-        # 第一次请求
-        first = guard.check_and_store("KEY-001", payload, result)
-        assert first["idempotent"] is False
-        assert first["stored"] is True
-        assert first["result"]["request_id"] == "SR-001"
-
-        # 第二次相同请求
-        second = guard.check_and_store("KEY-001", payload, result)
-        assert second["idempotent"] is True
-        assert second["result"]["request_id"] == "SR-001"  # 返回原结果
-
-    def test_same_key_different_payload_returns_conflict(self):
-        """同Key不同Payload → 409冲突。"""
-        guard = IdempotencyGuard()
-
-        # 第一次请求
-        guard.check_and_store("KEY-002", {"service": "audit"}, {"id": "SR-002"})
-
-        # 第二次不同Payload
-        result = guard.check_and_store(
-            "KEY-002",
-            {"service": "diagnosis"},  # 不同
-            {"id": "SR-003"}
-        )
-        assert result["idempotent"] is False
-        assert result["error"] == "IDEMPOTENCY_CONFLICT"
-
-    def test_expired_key_allows_new_request(self):
-        """Key过期后允许新请求。"""
-        guard = IdempotencyGuard(ttl_hours=0)  # 立即过期
-        payload = {"service": "audit"}
-        result = {"id": "SR-004"}
-
-        # 第一次请求
-        first = guard.check_and_store("KEY-003", payload, result)
-        assert first["stored"] is True
-
-        # Key应立即过期（ttl=0）
-        # 第二次请求应该成功（key已过期）
-        import time
-        time.sleep(0.01)  # 短暂等待确保时间流逝
-
-        second = guard.check_and_store("KEY-003", payload, result)
-        assert second["stored"] is True  # 视为新请求
+def _sqlite_service(tmp_path: Path) -> DeliveryService:
+    """持久化模式 DeliveryService（隔离临时 DB，复用 api/state.py 的装配语义）。"""
+    db = str(tmp_path / "idem.db")
+    repo = SQLiteJSONRepository("reports_projection", db, scope_unique=True)
+    return DeliveryService(ReportService(repository=repo))
 
 
-class TestIdempotencyAttackScenarios:
-    """测试幂等性攻击场景。"""
+def _rows(tmp_path: Path) -> int:
+    conn = sqlite3.connect(str(tmp_path / "idem.db"))
+    try:
+        return conn.execute("SELECT COUNT(*) FROM reports_projection").fetchone()[0]
+    finally:
+        conn.close()
 
-    def test_no_partial_duplicate_on_failure(self):
-        """第一次请求失败后重试，不产生partial duplicate。"""
-        guard = IdempotencyGuard()
-        payload = {"service": "audit"}
-        result = {"id": "SR-005", "status": "SUBMITTED"}
 
-        # 第一次请求（模拟成功）
-        first = guard.check_and_store("KEY-004", payload, result)
-        assert first["stored"] is True
-
-        # 重试相同请求
-        retry = guard.check_and_store("KEY-004", payload, result)
-        assert retry["idempotent"] is True
-        assert retry["result"]["id"] == "SR-005"  # 返回原结果，不创建新对象
+class TestSequentialIdempotency:
+    @pytest.mark.asyncio
+    async def test_replay_returns_existing_report(self, tmp_path):
+        svc = _sqlite_service(tmp_path)
+        d1 = await svc.execute_delivery("P1", "T1", 1, OBS, FIND, "tester")
+        d2 = await svc.execute_delivery("P1", "T1", 1, OBS, FIND, "tester")
+        assert d1["status"] == "DELIVERED"
+        assert d2["status"] == "ALREADY_DELIVERED"
+        assert d2["report_id"] == d1["report_id"]
+        assert _rows(tmp_path) == 1
 
     @pytest.mark.asyncio
-    async def test_concurrent_requests(self):
-        """并发重复请求 → 只产生一个对象。"""
-        guard = IdempotencyGuard()
-        payload = {"service": "audit"}
-        result = {"id": "SR-006"}
+    async def test_different_scope_creates_new(self, tmp_path):
+        svc = _sqlite_service(tmp_path)
+        d1 = await svc.execute_delivery("P1", "T1", 1, OBS, FIND, "tester")
+        d2 = await svc.execute_delivery("P1", "T1", 2, OBS, FIND, "tester")
+        assert d2["status"] == "DELIVERED"
+        assert d2["report_id"] != d1["report_id"]
+        assert _rows(tmp_path) == 2
 
-        # 串行执行模拟（Python GIL保证原子性，但测试验证逻辑）
-        first = guard.check_and_store("KEY-005", payload, result)
-        second = guard.check_and_store("KEY-005", payload, result)
+    @pytest.mark.asyncio
+    async def test_idempotent_across_restart(self, tmp_path):
+        """跨重启幂等：新服务实例（同 DB）重放仍返回既有报告（查 DB 非内存）。"""
+        db = str(tmp_path / "idem.db")
+        repo1 = SQLiteJSONRepository("reports_projection", db, scope_unique=True)
+        svc1 = DeliveryService(ReportService(repository=repo1))
+        d1 = await svc1.execute_delivery("P1", "T1", 1, OBS, FIND, "tester")
+        # 「重启」：全新实例 + 全新内存字典
+        repo2 = SQLiteJSONRepository("reports_projection", db, scope_unique=True)
+        svc2 = DeliveryService(ReportService(repository=repo2))
+        d2 = await svc2.execute_delivery("P1", "T1", 1, OBS, FIND, "tester")
+        assert d2["status"] == "ALREADY_DELIVERED"
+        assert d2["report_id"] == d1["report_id"]
+        assert _rows(tmp_path) == 1
 
-        # 第一个成功，第二个返回幂等结果
-        assert first["stored"] is True
-        assert second["idempotent"] is True
-        assert first["result"]["id"] == second["result"]["id"]
+
+class TestConcurrentIdempotency:
+    @pytest.mark.asyncio
+    async def test_concurrent_replay_single_row(self, tmp_path):
+        """并发重放：竞态窗口由存储层 UNIQUE 约束原子兜底，必须恰好 1 行。"""
+        svc = _sqlite_service(tmp_path)
+        results = await asyncio.gather(*[
+            svc.execute_delivery("P1", "T1", 1, OBS, FIND, "tester") for _ in range(20)
+        ])
+        delivered = [r for r in results if r["status"] == "DELIVERED"]
+        replayed = [r for r in results if r["status"] == "ALREADY_DELIVERED"]
+        assert len(delivered) == 1
+        assert len(replayed) == 19
+        report_ids = {r["report_id"] for r in results}
+        assert len(report_ids) == 1
+        assert _rows(tmp_path) == 1
 
 
-class TestIdempotencyKeyGeneration:
-    """测试幂等键生成。"""
+class TestRaceFallback:
+    @pytest.mark.asyncio
+    async def test_duplicate_report_error_returns_existing(self, tmp_path):
+        """存储层竞态回退：create_report 抛 DuplicateReportError → 返回既有报告。"""
+        svc = _sqlite_service(tmp_path)
+        d1 = await svc.execute_delivery("P1", "T1", 1, OBS, FIND, "tester")
 
-    def test_key_format(self):
-        """键格式符合规范。"""
-        guard = IdempotencyGuard()
-        key = guard.generate_key("SR-001", "submit")
+        async def _raced(*args, **kwargs):
+            raise DuplicateReportError("simulated storage constraint hit")
 
-        assert key.startswith("SR-001:submit:")
-        assert len(key) > 20  # 包含时间戳
+        svc.report_service.create_report = _raced  # 模拟并发对手方已落库
+        d2 = await svc.execute_delivery("P1", "T1", 1, OBS, FIND, "tester")
+        assert d2["status"] == "ALREADY_DELIVERED"
+        assert d2["report_id"] == d1["report_id"]
 
-    def test_different_payloads_different_keys(self):
-        """不同Payload生成不同哈希。"""
-        guard = IdempotencyGuard()
-        hash1 = guard._hash_payload({"service": "audit"})
-        hash2 = guard._hash_payload({"service": "diagnosis"})
+    @pytest.mark.asyncio
+    async def test_duplicate_report_error_reraises_when_no_existing(self, tmp_path):
+        """约束命中但查不到既有报告（异常态）→ 原样上抛，不伪造成功。"""
+        svc = _sqlite_service(tmp_path)
 
-        assert hash1 != hash2
+        async def _raced(*args, **kwargs):
+            raise DuplicateReportError("simulated storage constraint hit")
+
+        svc.report_service.create_report = _raced
+        with pytest.raises(DuplicateReportError):
+            await svc.execute_delivery("P1", "T1", 1, OBS, FIND, "tester")
+
+
+class TestMigrationGuard:
+    def test_scope_unique_init_fails_on_existing_duplicates(self, tmp_path):
+        """存量重复行时初始化必须显式失败（不静默吞掉 = 不做假门禁）。"""
+        db = str(tmp_path / "dup.db")
+        # 先建一个无约束表并注入重复行
+        conn = sqlite3.connect(db)
+        conn.execute(
+            "CREATE TABLE reports_projection (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, "
+            "project_id TEXT NOT NULL, payload TEXT NOT NULL, updated_at TEXT NOT NULL)"
+        )
+        payload = '{"report_id": "R", "tenant_id": "T1", "project_id": "P1", "scope_version": 1, "version": 1, "created_at": "2026-01-01", "created_by": "x"}'
+        for rid in ("R1", "R2"):
+            conn.execute(
+                "INSERT INTO reports_projection VALUES (?, 'T1', 'P1', ?, '2026-01-01')", (rid, payload)
+            )
+        conn.commit()
+        conn.close()
+        with pytest.raises(RuntimeError, match="ra10_dedupe_reports"):
+            SQLiteJSONRepository("reports_projection", db, scope_unique=True)
+
+
+class TestMemoryModeIdempotency:
+    @pytest.mark.asyncio
+    async def test_memory_mode_sequential_replay(self):
+        """内存模式（repository=None）顺序重放同样幂等（演示回退路径不回归）。"""
+        svc = DeliveryService()
+        d1 = await svc.execute_delivery("P1", "T1", 1, OBS, FIND, "tester")
+        d2 = await svc.execute_delivery("P1", "T1", 1, OBS, FIND, "tester")
+        assert d1["status"] == "DELIVERED"
+        assert d2["status"] == "ALREADY_DELIVERED"
+        assert d2["report_id"] == d1["report_id"]
