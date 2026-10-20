@@ -81,6 +81,14 @@ HQ generates：
 
 After approval：Scope is frozen.
 
+> **适用说明（2026-10-20 增补，正文未改动）**
+> 本契约下实际交付期（delivery commitment）随第 5–6 节的具体服务与批准范围逐项目确定；
+> 不存在适用于所有服务的统一默认交付天数。旧 V0.1 §12 的 `delivery_target_days: 7`
+> 仅为字段格式示例，不构成本契约下的默认 SLA。
+> 现行对外产品时效以官网现行产品规格为准：
+> `geo-growth-site/docs/PRODUCT-SPEC-AI-VISIBILITY-DIAGNOSTIC-V1.0.md`
+> （¥999／次 AI 可见性诊断：资料齐备并确认服务范围后 3 个工作日交付）。
+
 ## 6. Scope Change
 
 A change is Scope Change if it changes any of：

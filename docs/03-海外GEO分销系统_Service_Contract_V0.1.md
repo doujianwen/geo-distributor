@@ -502,6 +502,13 @@ V0.1 先支持字段，不立即硬编码全部 SLA：
 
 具体 SLA 属于 COMMERCIAL-PILOT。真实项目验证后再冻结。
 
+> **历史示例适用说明（2026-10-20 增补，正文未改动）**
+> 上方 JSON 仅为 **SLA 字段格式示例**（本文档自述"先支持字段，不立即硬编码全部 SLA"），其中的
+> `delivery_target_days: 7` **不是任何产品的正式交付承诺**，不得作为对外时效口径引用。
+> 现行对外产品时效以官网现行产品规格为准：
+> 见 `geo-growth-site/docs/PRODUCT-SPEC-AI-VISIBILITY-DIAGNOSTIC-V1.0.md`
+> （¥999／次 AI 可见性诊断：资料齐备并确认服务范围后 **3 个工作日** 交付）。
+
 # 13. Revision
 
 允许：
