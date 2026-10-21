@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel, Field
 
 from .. import state
-from ..deps import authenticate, require_write
+from ..deps import authenticate, require_write, require_hq
 from geo_distributor.repositories.base import PermissionError as RepoPermissionError
 
 router = APIRouter(prefix="/measurements", tags=["measurements"])
@@ -125,7 +125,7 @@ async def _verify_tenant(project_id: str, tenant_id: str | None) -> None:
 # ------------------------------------------------------------------
 
 @router.post("", response_model=MeasurementOut, status_code=201)
-async def run_measurement(body: MeasurementRequest, auth=Depends(require_write)):
+async def run_measurement(body: MeasurementRequest, auth=Depends(require_hq)):
     """触发一次采集并返回聚合结果。"""
     await _verify_tenant(body.project_id, body.tenant_id)
 
@@ -133,7 +133,7 @@ async def run_measurement(body: MeasurementRequest, auth=Depends(require_write))
     from geo_distributor.compatibility.base import PlatformObservation
     from geo_distributor.services.measurement_analysis import aggregate_metrics
     from geo_distributor.models.finding import Finding, FindingSeverity, FindingCategory
-    from datetime import datetime
+    from datetime import datetime, timezone
     import os
     from geo_distributor.config import get_project_root
     import json
@@ -240,7 +240,7 @@ async def run_measurement(body: MeasurementRequest, auth=Depends(require_write))
         "tenant_id": body.tenant_id,
         "adapter": adapter_name,
         "case_id": case_id,
-        "collected_at": datetime.now().isoformat(),
+        "collected_at": datetime.now(timezone.utc).isoformat(),
         "observation_count": len(observations),
         # 存完整观测（含 competitors），否则历史查询拿不到数据，
         # 竞品分析等下游能力在 GET 路径上会静默退化成"无数据"。
@@ -278,17 +278,15 @@ async def run_measurement(body: MeasurementRequest, auth=Depends(require_write))
 async def get_measurements(
     project_id: str,
     x_tenant_id: Annotated[str | None, Header(alias="X-Tenant-ID")] = None,
-    auth=Depends(authenticate),
+    auth=Depends(require_hq),
 ):
     """获取某项目的所有采集结果。"""
     # B-2：使用认证上下文的 tenant（header 已交叉校验）
     tenant_id = auth.tenant_id
     # B-1 修复：先校验项目归属，再读数据
     await _verify_tenant(project_id, tenant_id)
-    results = state._measurement_results.get(project_id, [])
-    # P0-4：进程内无记录（如服务重启后）则回落到持久化投影表。
-    if not results and state.measurement_repo is not None:
-        results = await state.measurement_repo.list_by_project(project_id, tenant_id)
+    from ..geo_view import load_measurements
+    results = await load_measurements(project_id, tenant_id)
     if not results:
         raise HTTPException(status_code=404, detail=f"No measurements found for project {project_id}")
     # 双保险：结果内若含其他 tenant 的记录，一并拒绝

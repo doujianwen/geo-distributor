@@ -7,14 +7,17 @@
 <title>渠道商控制台 · GEO Distributor</title>
 <!-- 空 data: 图标：消除 /favicon.ico 的 404 控制台噪声（CSP img-src 允许 data:）。 -->
 <link rel="icon" href="data:," />
+<!-- L1 品牌共享层（生成产物，来源 tools/brand-tokens/brand-tokens.json）——先于 app.css -->
+<link rel="stylesheet" href="/ui/brand-tokens.css" />
 <link rel="stylesheet" href="/ui/app.css" />
+<link rel="stylesheet" href="/ui/operator-assets/operator.css" />
 </head>
 <body>
 <header class="topbar">
   <div class="brand">
     <span class="dot"></span>
-    <strong>渠道商控制台</strong>
-    <span class="sub">Distributor Portal · Commercial V1</span>
+    <strong id="workspace-title">渠道商控制台</strong>
+    <span class="sub">GEO 合作伙伴工作区</span>
   </div>
   <div class="session" id="session-box" hidden>
     <span class="who" id="who"></span>
@@ -30,9 +33,12 @@
 
 <footer class="foot">
   <span>Distributor sells; HQ delivers.</span>
-  <span class="muted" id="foot-note">本控制台不展示技术细节；技术真相由总部掌握。</span>
+  <span class="muted" id="foot-note">客户需求 · 总部确认 · 专业交付</span>
 </footer>
 
+<script src="/ui/growth.js"></script>
+<script src="/ui/operator-assets/operator.js"></script>
+<script src="/ui/operator-assets/access.js"></script>
 <script src="/ui/app.js"></script>
 </body>
 </html>

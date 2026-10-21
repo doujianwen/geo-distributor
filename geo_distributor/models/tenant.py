@@ -44,6 +44,7 @@ class UserRole(Enum):
     HQ_TECHNICAL = "hq_technical"
     HQ_MANAGEMENT = "hq_management"
     CLIENT_VIEWER = "client_viewer"
+    END_CUSTOMER = "end_customer"
 
 
 @dataclass

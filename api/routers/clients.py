@@ -10,6 +10,7 @@ from .. import state
 from geo_distributor.repositories.base import PermissionError as RepoPermissionError
 from ..deps import authenticate, require_write
 from .reports import report_to_out
+from ..geo_view import geo_view, report_projection
 
 router = APIRouter(prefix="/clients", tags=["clients"])
 
@@ -175,12 +176,11 @@ async def get_client_portal(
             # 存储形态把 client-safe 字段嵌在 content 下，此处投影为顶层形态
             # （与 /reports 契约一致，供 portal 消费 next_steps 等）。
             reports = [
-                report_to_out(r)
+                await report_projection(r)
                 for r in raw_reports
                 if r.get("tenant_id") == tenant_id and r.get("is_client_safe") is True
             ]
-        measurements = [r for r in state._measurement_results.get(project.project_id, [])
-                        if r.get("tenant_id") == tenant_id]
+        measurements = (await geo_view(project.project_id, tenant_id))["batches"]
         next_actions = []
         for report in reports:
             for step in report.get("next_steps", []) or []:

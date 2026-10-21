@@ -52,6 +52,9 @@ measurement_repo = None
 # 投影存储（dict payload，非领域模型）；SQLite 模式下落 leads_intake 表，
 # 内存模式下走 InMemoryJSONRepository。用于 Website Lead → HQ 待分配队列。
 lead_repo = None
+customer_review_repo = None
+customer_publication_repo = None
+hq_operation_repo = None
 
 
 def init_repositories(db_path: str | None = None) -> None:
@@ -67,6 +70,8 @@ def init_repositories(db_path: str | None = None) -> None:
     global persistence_backend, active_db_path
     global measurement_repo
     global lead_repo
+    global customer_review_repo, customer_publication_repo
+    global hq_operation_repo
 
     from geo_distributor.repositories.client_repo import ClientRepository
     from geo_distributor.repositories.project_repo import ProjectRepository
@@ -104,6 +109,9 @@ def init_repositories(db_path: str | None = None) -> None:
         )
         # ADR-009：Lead Intake Queue（跨重启保留 → 满足 §4-12）
         lead_repo = SQLiteJSONRepository("leads_intake", resolved_db, id_key="lead_id")
+        customer_review_repo = SQLiteJSONRepository("client_reviews", resolved_db, id_key="review_id")
+        customer_publication_repo = SQLiteJSONRepository("client_publications", resolved_db, id_key="publication_id")
+        hq_operation_repo = SQLiteJSONRepository("hq_operations", resolved_db, id_key="operation_id")
         persistence_backend = "sqlite"
         active_db_path = resolved_db
     else:
@@ -114,6 +122,9 @@ def init_repositories(db_path: str | None = None) -> None:
         report_repo = None
         measurement_repo = None
         lead_repo = InMemoryJSONRepository("lead_id")
+        customer_review_repo = InMemoryJSONRepository("review_id")
+        customer_publication_repo = InMemoryJSONRepository("publication_id")
+        hq_operation_repo = InMemoryJSONRepository("operation_id")
         persistence_backend = "memory"
         active_db_path = None
 

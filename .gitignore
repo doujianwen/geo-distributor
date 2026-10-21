@@ -36,6 +36,9 @@ screenshots/
 config/settings.local.yaml
 # --- B-2 认证密钥（绝不入库）---
 config/api_keys.json
+config/portal_runtime.local.json
+config/workspace_identity.local.json
+config/wp-workspace.local.php
 
 # Pilot secrets (Stage-1) — 绝不入库
 .pilot_key_*
@@ -44,3 +47,8 @@ data/pilot/
 
 # WorkBuddy 本地工作记忆（内部资产，不入库）
 .workbuddy/
+logs/
+
+# Interactive fictional Growth workspace
+data/growth-sandbox/
+data/growth-workspace/

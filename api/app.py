@@ -7,8 +7,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import clients, projects, measurements, reports, sync, distribution, leads
+from .routers import clients, projects, measurements, reports, sync, distribution, leads, requests, hq
 from . import ui as ui_module
+from . import customer_ui
+from .routers import customer
 
 # CORS 允许来源白名单。
 #
@@ -86,6 +88,9 @@ async def security_headers_middleware(request, call_next):
     注意：`Server` 头由 uvicorn 在 ASGI 层**之外**注入，中间件删不掉，
     必须由服务器层关闭（start_api_prod.sh 的 --no-server-header）。
     """
+    if os.environ.get("GEO_DISTRIBUTOR_DEMO_ONLY") == "1" and request.method not in {"GET", "HEAD", "OPTIONS"} and request.url.path not in {"/ui/demo-session", "/ui/session", "/ui/customer/demo-session", "/ui/customer/session", "/ui/hq/demo-session", "/ui/hq/session"}:
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"detail": "虚拟演示工作区为只读"}, status_code=403, headers={"Cache-Control": "no-store"})
     response = await call_next(request)
 
     for header in ("server", "x-powered-by"):
@@ -222,7 +227,9 @@ app.add_middleware(
 )
 
 # Register routers
+app.include_router(hq.router)
 app.include_router(clients.router)
+app.include_router(requests.router)
 app.include_router(projects.router)
 app.include_router(measurements.router)
 app.include_router(reports.router)
@@ -237,6 +244,9 @@ app.include_router(leads.router)
 # Distributor Portal MVP（Commercial V1 · P0-2）—— 渠道商控制台。
 # 必须在业务 router 之后注册，但其内部路径 (/ui/*) 与业务前缀不冲突。
 app.include_router(ui_module.router)
+app.include_router(customer.router)
+app.include_router(customer.management)
+app.include_router(customer_ui.router)
 
 
 @app.get("/health")
@@ -257,3 +267,15 @@ async def health():
     """
     _ensure_initialized()
     return {"status": "ok"}
+
+from .routers import growth
+from .routers import operator, workspace_access, growth_resources
+from . import personal_identity
+app.include_router(operator.router)
+app.include_router(workspace_access.router)
+app.include_router(growth_resources.router)
+app.include_router(personal_identity.router)
+app.include_router(growth.router)
+
+from . import growth_lab
+app.include_router(growth_lab.router)

@@ -53,7 +53,8 @@ def _env(monkeypatch, extra: str = "") -> None:
 
 
 @pytest.fixture()
-def client(monkeypatch):
+def client(monkeypatch, tmp_path):
+    monkeypatch.setenv("GEO_DISTRIBUTOR_AUDIT_DB",str(tmp_path/"audit.db"))
     _env(monkeypatch)
     from api import state
 
@@ -67,32 +68,28 @@ def client(monkeypatch):
 
 
 def _create_project(client: TestClient, tenant: str, key: str) -> str:
-    """以指定 tenant 创建 project。
+    """Seed a canonical legacy project for read/authorization tests.
 
-    `tenant` 必须与 `key` 的绑定 tenant 一致 —— 否则认证层会正确地返回 403，
-    测试会因「前置失败」而中断，掩盖真正要测的场景。
+    Distributor direct creation was intentionally closed by the HQ approval
+    workflow. This fixture must not depend on that obsolete write permission.
     """
-    r = client.post(
-        "/projects",
-        json={"tenant_id": tenant, "client_id": f"CLI-{tenant}", "service": "visibility_audit"},
-        headers={"X-API-Key": key, "X-Tenant-ID": tenant},
-    )
-    assert r.status_code == 201, (
-        f"前置失败：{r.status_code} {r.text}；"
-        f"tenant={tenant} 必须与该密钥绑定的 tenant 一致"
-    )
-    return r.json()["project_id"]
+    import asyncio
+    import uuid
+    from api import state, auth
+    from geo_distributor.models.client import Client
+    from geo_distributor.models.project import Project
+    ctx=auth.verify_api_key(key)
+    assert ctx and (ctx.tenant_id==tenant or ctx.is_hq)
+    ident=uuid.uuid4().hex[:10]
+    cid="CLI-AUTH-"+ident
+    pid="PRJ-AUTH-"+ident
+    asyncio.run(state.client_repo.create(Client(cid,tenant,"Auth fixture")))
+    asyncio.run(state.project_repo.create(Project(pid,"REQ-FIXTURE",tenant,cid,"SCOPE-FIXTURE")))
+    return pid
 
 
 def _create_project_as(client: TestClient, tenant: str, key: str) -> str:
-    """用**有写权限**的密钥创建资源（供只读角色读取测试用）。"""
-    r = client.post(
-        "/projects",
-        json={"tenant_id": tenant, "client_id": f"CLI-{tenant}", "service": "visibility_audit"},
-        headers={"X-API-Key": key, "X-Tenant-ID": tenant},
-    )
-    assert r.status_code == 201, f"前置失败：{r.status_code} {r.text}"
-    return r.json()["project_id"]
+    return _create_project(client,tenant,key)
 
 
 # 每个密钥与其绑定 tenant 的对照（避免测试里写错配对）
@@ -219,15 +216,10 @@ class TestRoleAuthorization:
         assert r.status_code == 403, f"CLIENT_VIEWER 竟可删除：{r.status_code} {r.text[:150]}"
 
     def test_client_viewer_can_read(self, client):
-        """只读角色必须仍能读**自己 tenant** 的资源 —— 避免过度限制。"""
-        # 资源由有写权限的密钥创建，只读角色随后读取
-        pid = _create_project_as(client, TENANT_B, KEYS_USER)
-
-        r = client.get(
-            f"/projects/{pid}",
-            headers={"X-API-Key": KEYS_USER, "X-Tenant-ID": TENANT_B},
-        )
-        assert r.status_code == 200, f"有写权限角色应可读，实际 {r.status_code} {r.text[:200]}"
+        """Tenant-wide read-only role retains its own legacy resource access."""
+        pid = _create_project_as(client, "DST-VIEW-C", KEYS_VIEWER)
+        r = client.get(f"/projects/{pid}", headers={"X-API-Key": KEYS_VIEWER})
+        assert r.status_code == 200
 
     def test_role_cannot_be_spoofed_via_header(self, client):
         """header 声明 HQ 角色无效 —— 角色必须来自密钥绑定。"""

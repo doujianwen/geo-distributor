@@ -28,6 +28,7 @@ TLS 由反向代理保证；本模块只负责应用层认证与授权。
 from __future__ import annotations
 
 import json
+import hashlib
 import logging
 import os
 import secrets
@@ -80,6 +81,9 @@ class AuthContext:
     role: str
     user_id: str
     is_hq: bool
+    client_id: str | None = None
+    workspace_site_id: int | None = None
+    credential_fingerprint: str | None = None
 
     def can_write(self) -> bool:
         return self.role in WRITE_ROLES
@@ -93,6 +97,7 @@ class AuthContext:
             "role": self.role,
             "user_id": self.user_id,
             "is_hq": self.is_hq,
+            "client_id": self.client_id,
         }
 
 
@@ -105,20 +110,23 @@ def _is_dev_environment() -> bool:
     return (os.environ.get(ENV_ENV, "") or "").strip().lower() in {"dev", "test", "local"}
 
 
-def _parse_line(line: str) -> Optional[tuple[str, str, str]]:
+def _parse_line(line: str) -> Optional[tuple[str, str, str, str]]:
     """解析 `TENANT:KEY:ROLE` 三段式。格式错误返回 None（跳过而非崩溃）。"""
     parts = [p.strip() for p in line.strip().split(":")]
-    if len(parts) != 3:
+    if len(parts) not in (3, 4):
         return None
-    tenant_id, api_key, role = parts
+    tenant_id, api_key, role = parts[:3]
+    client_id = parts[3] if len(parts) == 4 else ""
+    if (role.upper() in {"END_CUSTOMER", "END_CUSTOMER_EDITOR"}) != bool(client_id):
+        return None
     if not tenant_id or not api_key or not role:
         return None
-    return tenant_id, api_key, role.upper()
+    return tenant_id, api_key, role.upper(), client_id
 
 
-def _load_from_env() -> Dict[str, tuple[str, str]]:
+def _load_from_env() -> Dict[str, tuple[str, str, str]]:
     raw = os.environ.get(API_KEYS_ENV, "") or ""
-    out: Dict[str, tuple[str, str]] = {}
+    out: Dict[str, tuple[str, str, str]] = {}
     for line in raw.replace("\n", ",").split(","):
         if not line.strip():
             continue
@@ -126,12 +134,12 @@ def _load_from_env() -> Dict[str, tuple[str, str]]:
         if parsed is None:
             logger.warning("B-2: 跳过格式错误的密钥配置行")
             continue
-        tenant_id, api_key, role = parsed
-        out[api_key] = (tenant_id, role)
+        tenant_id, api_key, role, client_id = parsed
+        out[api_key] = (tenant_id, role, client_id)
     return out
 
 
-def _load_from_file() -> Dict[str, tuple[str, str]]:
+def _load_from_file() -> Dict[str, tuple[str, str, str]]:
     """从 config/api_keys.json 读取。
 
     该文件必须在 .gitignore 中 —— 密钥绝不能进仓库。
@@ -144,7 +152,7 @@ def _load_from_file() -> Dict[str, tuple[str, str]]:
         logger.warning("B-2: 读取 %s 失败：%s", REGISTRY_FILE, exc)
         return {}
 
-    out: Dict[str, tuple[str, str]] = {}
+    out: Dict[str, tuple[str, str, str]] = {}
     entries = data.get("keys", []) if isinstance(data, dict) else data
     for item in entries or []:
         if not isinstance(item, dict):
@@ -152,20 +160,23 @@ def _load_from_file() -> Dict[str, tuple[str, str]]:
         tenant_id = (item.get("tenant_id") or "").strip()
         api_key = (item.get("api_key") or "").strip()
         role = (item.get("role") or "").strip().upper()
+        client_id = (item.get("client_id") or "").strip()
         if not (tenant_id and api_key and role):
             continue
-        out[api_key] = (tenant_id, role)
+        if (role in {"END_CUSTOMER", "END_CUSTOMER_EDITOR"}) != bool(client_id):
+            continue
+        out[api_key] = (tenant_id, role, client_id)
     return out
 
 
-def _load_registry() -> Dict[str, tuple[str, str]]:
+def _load_registry() -> Dict[str, tuple[str, str, str]]:
     """按优先级合并注册表：环境变量 > 文件 > 内置开发密钥。"""
     registry = _load_from_file()
     registry.update(_load_from_env())
 
     # 内置开发密钥：**仅** dev/test 环境，且不得覆盖显式配置
     if _is_dev_environment() and _DEV_BUILTIN_KEY not in registry:
-        registry[_DEV_BUILTIN_KEY] = (_DEV_BUILTIN_TENANT, "DISTRIBUTOR_ADMIN")
+        registry[_DEV_BUILTIN_KEY] = (_DEV_BUILTIN_TENANT, "DISTRIBUTOR_ADMIN", "")
     return registry
 
 
@@ -174,7 +185,7 @@ def _load_registry() -> Dict[str, tuple[str, str]]:
 # 为什么不只用模块级布尔缓存：那会让`verify_api_key` 的引用在模块 reload 后
 # 仍指向旧注册表（deps.py 已 import 该函数），导致环境变量变了却不生效。
 # 用配置指纹做key：配置不变时零开销，配置一变自动重载，且对 reload 友好。
-_REGISTRY_CACHE: Optional[tuple[str, Dict[str, tuple[str, str]]]] = None
+_REGISTRY_CACHE: Optional[tuple[str, Dict[str, tuple[str, str, str]]]] = None
 
 
 def _config_fingerprint() -> str:
@@ -192,7 +203,7 @@ def _config_fingerprint() -> str:
     return "|".join(parts)
 
 
-def _registry() -> Dict[str, tuple[str, str]]:
+def _registry() -> Dict[str, tuple[str, str, str]]:
     global _REGISTRY_CACHE
     fingerprint = _config_fingerprint()
     if _REGISTRY_CACHE is not None and _REGISTRY_CACHE[0] == fingerprint:
@@ -221,8 +232,11 @@ def verify_api_key(api_key: Optional[str]) -> Optional[AuthContext]:
     if not api_key:
         return None
 
+    if api_key.startswith('person_'):
+        from .personal_identity import token_context
+        return token_context(api_key)
     registry = _registry()
-    matched: Optional[tuple[str, str]] = None
+    matched: Optional[tuple[str, str, str]] = None
 
     # 常数时间遍历：无论是否命中，耗时与注册表大小相关
     for candidate_key, binding in registry.items():
@@ -232,19 +246,20 @@ def verify_api_key(api_key: Optional[str]) -> Optional[AuthContext]:
     if matched is None:
         return None
 
-    tenant_id, role = matched
+    tenant_id, role, client_id = matched
     return AuthContext(
         tenant_id=tenant_id,
         role=role,
-        user_id=f"{tenant_id}-apikey",
+        user_id=f"{tenant_id}/{client_id or role}/credential-{hashlib.sha256(api_key.encode()).hexdigest()[:16]}",
         is_hq=role in HQ_ROLES,
+        client_id=client_id or None,
     )
 
 
 def registered_tenants_by_role(roles: set[str]) -> set[str]:
     """Return registered tenant IDs for the supplied roles without exposing keys."""
     normalized = {str(role).strip().upper() for role in roles}
-    return {tenant_id for tenant_id, role in _registry().values() if role in normalized}
+    return {tenant_id for tenant_id, role, _client in _registry().values() if role in normalized}
 
 
 def resolve_tenant(

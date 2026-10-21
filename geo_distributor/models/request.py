@@ -118,6 +118,7 @@ class ServiceRequest:
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
     idempotency_key: Optional[str] = None  # 防止重复提交
+    workflow: dict = field(default_factory=dict)  # Portal approval snapshot/history; legacy-safe
 
     def can_transition_to(self, new_status: RequestStatus) -> bool:
         """检查状态转换是否合法（State Transition Guard）。"""
@@ -171,6 +172,7 @@ class ServiceRequest:
             created_at=data.get("created_at") or datetime.now().isoformat(),
             updated_at=data.get("updated_at") or datetime.now().isoformat(),
             idempotency_key=data.get("idempotency_key"),
+            workflow=data.get("workflow") or {},
         )
 
     def to_dict(self) -> dict:
@@ -191,4 +193,6 @@ class ServiceRequest:
             "accepted_at": self.accepted_at,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "idempotency_key": self.idempotency_key,
+            "workflow": self.workflow,
         }

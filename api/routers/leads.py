@@ -172,6 +172,20 @@ def _audit(row: dict, actor: str, action: str, frm: str, to: str, note: str = ""
     )
 
 
+async def _lead_out(row: dict, deduplicated: bool = False) -> LeadOut:
+    """Show the approved project via its canonical request, without rewriting lead history."""
+    payload = _to_out(row, deduplicated)
+    if row.get("request_id") and not row.get("project_id") and state.request_repo:
+        from geo_distributor.repositories.base import PermissionError as RepoPermissionError
+        try:
+            request = await state.request_repo.find_by_id(row["request_id"], tenant_id=row["tenant_id"])
+        except (RepoPermissionError, PermissionError):
+            request = None
+        if request and request.tenant_id == row["tenant_id"]:
+            payload["project_id"] = request.project_id or ""
+    return LeadOut(**payload)
+
+
 # ------------------------------------------------------------------
 # Endpoints
 # ------------------------------------------------------------------
@@ -244,7 +258,7 @@ async def intake_lead(
             await q.upsert(payload)
             stored, created = payload, True
     response.status_code = 201 if created else 200
-    return LeadOut(**_to_out(stored, deduplicated=not created))
+    return await _lead_out(stored, deduplicated=not created)
 
 
 @router.get("", response_model=List[LeadOut])
@@ -270,7 +284,7 @@ async def list_leads(
 
     if status:
         rows = [r for r in rows if r.get("intake_status") == status]
-    return [LeadOut(**_to_out(r)) for r in rows]
+    return [await _lead_out(r) for r in rows]
 
 
 @router.get("/assignable-tenants")
@@ -292,7 +306,7 @@ async def get_lead(lead_id: str, auth=Depends(authenticate)):
         raise HTTPException(status_code=404, detail="Lead not found")
     if not auth.can_cross_tenant() and row.get("tenant_id") != auth.tenant_id:
         raise HTTPException(status_code=404, detail="Lead not found")
-    return LeadOut(**_to_out(row))
+    return await _lead_out(row)
 
 
 @router.post("/{lead_id}/assign", response_model=LeadOut)
@@ -305,61 +319,9 @@ async def assign_lead(
 
     §3 明确：**不虚构自动分配算法**——分配是人工决策，本端点只执行。
     """
-    if not auth.is_hq:
-        raise HTTPException(status_code=403, detail="Only HQ roles may assign leads")
-
-    q = _queue()
-    row = await q.get(lead_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="Lead not found")
-
-    current = row.get("intake_status", "")
-    if current not in (STATUS_NEW, STATUS_PENDING, STATUS_HQ_MANAGED):
-        raise HTTPException(status_code=409, detail=f"Lead already {current}")
-
-    target = (body.tenant_id or "").strip()
-    if not target:
-        raise HTTPException(status_code=400, detail="tenant_id is required")
-    if target != LEAD_INTAKE_TENANT:
-        from ..auth import registered_tenants_by_role
-        allowed_tenants = registered_tenants_by_role({"DISTRIBUTOR_ADMIN", "DISTRIBUTOR_USER"})
-        if target not in allowed_tenants:
-            raise HTTPException(status_code=422, detail="Target tenant is not a registered distributor tenant")
-
-    client_id = row.get("client_id", "") or ""
-    if body.create_client:
-        if state.client_repo is None:
-            raise HTTPException(status_code=503, detail="API not initialized")
-        from geo_distributor.models.client import Client
-
-        contact = row.get("contact", {}) or {}
-        client_id = f"CLI-{uuid.uuid4().hex[:8].upper()}"
-        client = Client(
-            client_id=client_id,
-            tenant_id=target,
-            name=body.client_name or contact.get("company") or contact.get("name") or "Website Lead",
-            website=contact.get("domain", "") or "",
-            contact_email=contact.get("email", "") or "",
-        )
-        await state.client_repo.create(client)
-
-    now = _now()
-    if target == LEAD_INTAKE_TENANT:
-        # HQ 直管：留在 HQ-INTAKE，不迁租户
-        row["intake_status"] = STATUS_HQ_MANAGED
-        row["assigned_tenant_id"] = ""
-        note = "hq_managed"
-    else:
-        row["tenant_id"] = target
-        row["assigned_tenant_id"] = target
-        row["intake_status"] = STATUS_CONVERTED_CLIENT if client_id else STATUS_ASSIGNED
-        note = f"tenant={target}"
-    if client_id:
-        row["client_id"] = client_id
-    row["updated_at"] = now
-    _audit(row, auth.user_id, "assign", current, row["intake_status"], note)
-    await q.upsert(row)
-    return LeadOut(**_to_out(row))
+    from ..hq_service import assign
+    row = assign(lead_id, body.model_dump(), auth)
+    return await _lead_out(row, bool(row.get("deduplicated")))
 
 
 @router.post("/{lead_id}/convert", response_model=LeadOut)
@@ -382,50 +344,39 @@ async def convert_lead(
     if row is None:
         raise HTTPException(status_code=404, detail="Lead not found")
     if row.get("intake_status") == STATUS_CONVERTED_PROJECT and row.get("project_id"):
-        return LeadOut(**_to_out(row, deduplicated=True))
+        return await _lead_out(row, deduplicated=True)
 
+    if row.get("request_id"):
+        return await _lead_out(row, deduplicated=True)
     target = row.get("tenant_id", "")
-    if target == LEAD_INTAKE_TENANT:
-        raise HTTPException(status_code=409, detail="Lead is not assigned to a distributor tenant")
+    if target == LEAD_INTAKE_TENANT and row.get("intake_status") != STATUS_HQ_MANAGED:
+        raise HTTPException(status_code=409, detail="请先分配或确认为总部直管")
     client_id = row.get("client_id", "")
     if not client_id:
         raise HTTPException(status_code=409, detail="Lead has no Client; assign with create_client=true first")
 
-    svc = state.project_service
-    if svc is None:
-        raise HTTPException(status_code=503, detail="API not initialized")
-
-    result = await svc.submit_request(
-        tenant_id=target,
-        client_id=client_id,
-        service=body.service or row.get("service", "visibility_audit"),
-        business_context={
-            "target_market": body.target_market,
-            "target_products": body.target_products,
-            "business_question": body.business_question or row.get("message", ""),
-            "known_competitors": [],
-            "target_customer": "",
-        },
-        idempotency_key=row.get("idempotency_key") or f"lead:{lead_id}",
-    )
-
-    request_id = result.get("request_id", "")
-    project_id = result.get("project_id", "")
-    if result.get("status") == "SCOPE_PENDING_APPROVAL":
-        approve = await svc.approve_scope(request_id=request_id, approver_id=auth.user_id)
-        if not approve.get("success", True):
-            raise HTTPException(status_code=400, detail=approve.get("message", "Scope approval failed"))
-        project_id = approve.get("project_id", "")
-
-    if not project_id:
-        raise HTTPException(status_code=500, detail="Lead conversion produced no project")
-
-    now = _now()
-    row["request_id"] = request_id
-    row["project_id"] = project_id
-    row["intake_status"] = STATUS_CONVERTED_PROJECT
-    row["updated_at"] = now
-    _audit(row, auth.user_id, "convert", STATUS_CONVERTED_CLIENT, STATUS_CONVERTED_PROJECT,
-           f"request={request_id} project={project_id}")
+    # A lead becomes a canonical request; approval is an explicit management action.
+    from .requests import RequestIn
+    from .. import request_workflow as flow
+    from pydantic import ValidationError
+    if row.get("request_id"):
+        return await _lead_out(row, deduplicated=True)
+    try:
+        request_body = RequestIn(
+            tenant_id=target, client_id=client_id,
+            service=body.service or row.get("service", "visibility_audit"),
+            market_scope="global", target_market=body.target_market,
+            target_products=body.target_products,
+            business_question=body.business_question or row.get("message", ""),
+        )
+    except ValidationError:
+        raise HTTPException(422, detail="请补充有效的服务类型与业务问题")
+    result = flow.create(request_body.model_dump(), auth, "lead:" + lead_id)
+    row["request_id"] = result["request_id"]
+    row["project_id"] = ""
+    row["intake_status"] = "converted_request"
+    row["updated_at"] = _now()
+    _audit(row, auth.user_id, "convert_request", STATUS_CONVERTED_CLIENT, "converted_request",
+           "request=" + result["request_id"])
     await q.upsert(row)
-    return LeadOut(**_to_out(row))
+    return await _lead_out(row)

@@ -56,13 +56,17 @@ router = APIRouter(prefix="/ui", tags=["ui"])
 
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
 
-SESSION_COOKIE = "ggs_cp_sid"
+SESSION_COOKIE = os.environ.get("GEO_DISTRIBUTOR_SESSION_COOKIE", "ggs_cp_sid")
+def _cookie(request):
+    return SESSION_COOKIE + "_hq" if request.url.path.startswith("/ui/hq/") else SESSION_COOKIE
+
+
 SESSION_TTL_SECONDS = 8 * 3600      # 绝对上限
 SESSION_IDLE_SECONDS = 60 * 60      # 空闲上限
 
 # 代理白名单：只允许既有业务前缀，杜绝 SSRF / 任意端点穿透。
-ALLOWED_PREFIXES = ("clients", "projects", "reports", "measurements", "leads")
-ALLOWED_METHODS = ("GET", "POST")
+ALLOWED_PREFIXES = ("clients", "projects", "reports", "measurements", "leads", "requests", "client-reviews", "client-publications", "hq", "growth", "identity")
+ALLOWED_METHODS = ("GET", "POST", "PUT", "DELETE")
 
 # 允许透传到上游的浏览器请求头白名单。
 #
@@ -73,7 +77,7 @@ ALLOWED_METHODS = ("GET", "POST")
 # 身份仍由服务端注入的 X-API-Key 决定，且上游 `/clients/{id}/portal`
 # 会按密钥绑定的租户再校验一次归属（跨租户 → 404）。
 # 若不转发它，该端点经 BFF 恒返回 403，等于门户能力不可用。
-FORWARD_HEADERS = ("X-Client-ID",)
+FORWARD_HEADERS = ("X-Client-ID", "Idempotency-Key", "If-Match", "If-Match-Object")
 
 # UI 页面的 CSP（与 API 的 default-src 'none' 不同，但仍是白名单而非放开）。
 UI_CSP = (
@@ -85,6 +89,7 @@ UI_CSP = (
     "base-uri 'none'; "
     "form-action 'self'; "
     "frame-ancestors 'none'"
+    "; frame-src 'self'"
 )
 
 # ------------------------------------------------------------------
@@ -173,6 +178,10 @@ def _get_session(sid: Optional[str]) -> Optional[dict[str, Any]]:
     if matched is None:
         return None
     sess = _SESSIONS[matched]
+    ctx = verify_api_key(sess["api_key"])
+    if not ctx or (ctx.tenant_id, ctx.role, ctx.is_hq) != (sess["tenant_id"], sess["role"], sess["is_hq"]):
+        _drop_session(matched)
+        return None
     sess["seen"] = now
     return sess
 
@@ -203,11 +212,40 @@ class SessionOut(BaseModel):
     role: str = ""
     can_write: bool = False
     is_hq: bool = False
+    is_demo: bool = False
 
 
 # ------------------------------------------------------------------
 # 会话端点
 # ------------------------------------------------------------------
+
+@router.get("/hq/demo-info")
+@router.get("/demo-info")
+async def demo_info():
+    # No credentials or business data. No arbitrary external redirect.
+    from .local_runtime import demo_url
+    from .personal_identity import configured
+    return {"enabled": _bool_env("GEO_DISTRIBUTOR_DEMO_ONLY"),
+            "identity_enabled": configured(),
+            "url": demo_url() if _bool_env("GEO_DISTRIBUTOR_LOCAL_DEMO_LINK") else ""}
+
+
+@router.post("/hq/demo-session", response_model=SessionOut)
+@router.post("/demo-session", response_model=SessionOut)
+async def demo_login(request: Request, response: Response, role: str = "channel"):
+    if not _bool_env("GEO_DISTRIBUTOR_DEMO_ONLY"):
+        raise HTTPException(404, "Not found")
+    names = {"channel": ("GEO_DISTRIBUTOR_DEMO_KEY", "CLIENT_VIEWER"),
+             "management": ("GEO_DISTRIBUTOR_HQ_DEMO_KEY", "HQ_MANAGEMENT"),
+             "operations": ("GEO_DISTRIBUTOR_OPS_DEMO_KEY", "HQ_TECHNICAL")}
+    if role not in names:
+        raise HTTPException(422, "请选择有效演示身份")
+    variable, expected_role = names[role]
+    key = os.environ.get(variable, "")
+    ctx = verify_api_key(key)
+    if not ctx or ctx.tenant_id != "DEMO-GEO" or ctx.role != expected_role:
+        raise HTTPException(503, "Demo unavailable")
+    return await ui_login(LoginIn(api_key=key), request, response)
 
 def _ui_headers() -> dict[str, str]:
     return {
@@ -217,9 +255,12 @@ def _ui_headers() -> dict[str, str]:
     }
 
 
+@router.post("/hq/session", response_model=SessionOut)
 @router.post("/session", response_model=SessionOut)
 async def ui_login(payload: LoginIn, request: Request, response: Response) -> SessionOut:
     """以 API Key 换取服务端会话。**响应体永不回显密钥。**"""
+    from .customer_ui import check_origin
+    check_origin(request)
     # 预认证 IP 限流：必须在 verify_api_key 之前，否则无效密钥会绕过限流。
     client_ip = request.client.host if request.client else "unknown"
     allowed, _remaining, retry_after = _login_limiter.check(f"login:{client_ip}")
@@ -231,18 +272,25 @@ async def ui_login(payload: LoginIn, request: Request, response: Response) -> Se
         )
 
     ctx = verify_api_key(payload.api_key)
+    if ctx is not None and ctx.role in {"END_CUSTOMER", "END_CUSTOMER_EDITOR"}:
+        raise HTTPException(403, "请使用客户工作区登录")
+    if _bool_env("GEO_DISTRIBUTOR_DEMO_ONLY") and (ctx is None or ctx.tenant_id != "DEMO-GEO" or ctx.role not in {"CLIENT_VIEWER", "HQ_MANAGEMENT", "HQ_TECHNICAL"}):
+        raise HTTPException(401, "Invalid demo identity")
     if ctx is None:
         # 不区分「缺失」与「无效」，避免探测。
         raise HTTPException(status_code=401, detail="Invalid API key")
 
+    if request.url.path.startswith("/ui/hq/") and not ctx.is_hq:
+        raise HTTPException(403, "请使用总部管理或运营身份登录")
+
     sid = _create_session(payload.api_key, ctx.tenant_id, ctx.role, ctx.is_hq)
     response.set_cookie(
-        SESSION_COOKIE,
+        _cookie(request),
         sid,
         httponly=True,
         samesite="strict",
         secure=COOKIE_SECURE,  # 本地默认 False；生产 HTTPS 置 GEO_DISTRIBUTOR_COOKIE_SECURE=1
-        path="/ui",
+        path="/ui/hq" if request.url.path.startswith("/ui/hq/") else "/ui",
         max_age=SESSION_TTL_SECONDS,
     )
     for k, v in _ui_headers().items():
@@ -253,12 +301,14 @@ async def ui_login(payload: LoginIn, request: Request, response: Response) -> Se
         role=ctx.role,
         can_write=ctx.can_write(),
         is_hq=ctx.is_hq,
+        is_demo=_bool_env("GEO_DISTRIBUTOR_DEMO_ONLY"),
     )
 
 
+@router.get("/hq/session", response_model=SessionOut)
 @router.get("/session", response_model=SessionOut)
 async def ui_whoami(request: Request, response: Response) -> SessionOut:
-    sess = _get_session(request.cookies.get(SESSION_COOKIE))
+    sess = _get_session(request.cookies.get(_cookie(request)))
     for k, v in _ui_headers().items():
         response.headers[k] = v
     if sess is None:
@@ -275,14 +325,28 @@ async def ui_whoami(request: Request, response: Response) -> SessionOut:
             "DISTRIBUTOR_ADMIN", "DISTRIBUTOR_USER", "HQ_TECHNICAL", "HQ_MANAGEMENT",
         },
         is_hq=sess["is_hq"],
+        is_demo=_bool_env("GEO_DISTRIBUTOR_DEMO_ONLY"),
     )
 
 
+@router.get('/operator-export/{project_id}/{collection}')
+async def operator_download(project_id: str, collection: str, request: Request):
+    from .operator_service import download_response
+    return await download_response(request,project_id,collection)
+
+
+@router.delete("/hq/session")
 @router.delete("/session")
 async def ui_logout(request: Request, response: Response) -> JSONResponse:
-    _drop_session(request.cookies.get(SESSION_COOKIE))
-    response.delete_cookie(SESSION_COOKIE, path="/ui")
-    return JSONResponse({"ok": True}, headers=_ui_headers())
+    current=_get_session(request.cookies.get(_cookie(request)))
+    if current:
+        from .personal_identity import revoke_token
+        revoke_token(current['api_key'])
+    _drop_session(request.cookies.get(_cookie(request)))
+    result = JSONResponse({"ok": True}, headers=_ui_headers())
+    result.delete_cookie(_cookie(request), path="/ui/hq" if request.url.path.startswith("/ui/hq/") else "/ui")
+    result.delete_cookie('ggs_person_identity',path='/ui')
+    return result
 
 
 # ------------------------------------------------------------------
@@ -296,11 +360,17 @@ def _path_allowed(path: str) -> bool:
     return head in ALLOWED_PREFIXES
 
 
+@router.get("/hq/proxy/{path:path}", name="hq_proxy_get")
+@router.post("/hq/proxy/{path:path}", name="hq_proxy_post")
+@router.put("/hq/proxy/{path:path}")
+@router.delete("/hq/proxy/{path:path}")
 @router.get("/proxy/{path:path}", name="ui_proxy_get")
 @router.post("/proxy/{path:path}", name="ui_proxy_post")
+@router.put("/proxy/{path:path}")
+@router.delete("/proxy/{path:path}")
 async def ui_proxy(path: str, request: Request) -> Response:
     """服务端注入 API Key 后转发到既有 API。密钥不出服务端。"""
-    sess = _get_session(request.cookies.get(SESSION_COOKIE))
+    sess = _get_session(request.cookies.get(_cookie(request)))
     if sess is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -308,9 +378,16 @@ async def ui_proxy(path: str, request: Request) -> Response:
         raise HTTPException(status_code=405, detail="Method not allowed")
     if not _path_allowed(path):
         raise HTTPException(status_code=403, detail="Path not allowed")
+    if request.method in {'PUT','DELETE'}:
+        import re
+        if not re.fullmatch(r'growth/projects/[A-Za-z0-9_-]{1,100}/operator/api/[A-Za-z0-9_/-]+', path):
+            raise HTTPException(403,'仅专业作业接口允许此方法')
+    if request.method != 'GET':
+        from .customer_ui import check_origin
+        check_origin(request)
 
     body: Any = None
-    if request.method == "POST":
+    if request.method in {"POST", "PUT", "DELETE"}:
         raw = await request.body()
         if raw:
             import json as _json
@@ -370,6 +447,7 @@ def _read_asset(name: str) -> Optional[str]:
     return p.read_text(encoding="utf-8")
 
 
+@router.get("/hq/", response_class=HTMLResponse)
 @router.get("/", response_class=HTMLResponse)
 async def ui_index() -> HTMLResponse:
     html = _read_asset("index.html")
@@ -394,3 +472,41 @@ async def ui_css() -> PlainTextResponse:
     if css is None:
         raise HTTPException(status_code=404, detail="UI asset missing")
     return PlainTextResponse(css, media_type="text/css; charset=utf-8", headers=_ui_headers())
+
+
+@router.get("/brand-tokens.css")
+async def ui_brand_tokens_css() -> PlainTextResponse:
+    """L1 品牌共享层产物（由 site 仓 tools/brand-tokens/build_brand_tokens.py 生成）。
+
+    仅提供静态样式，不参与鉴权与业务逻辑。缺失时页面其余样式仍可正常工作。
+    """
+    css = _read_asset("brand-tokens.css")
+    if css is None:
+        raise HTTPException(status_code=404, detail="UI asset missing")
+    return PlainTextResponse(css, media_type="text/css; charset=utf-8", headers=_ui_headers())
+
+
+@router.get("/growth.js")
+async def growth_js():
+    return PlainTextResponse(_read_asset("growth.js"), media_type="application/javascript", headers=_ui_headers())
+
+
+@router.get('/operator-frame/')
+async def operator_frame():
+    html = _read_asset('operator-frame.html')
+    if html is None:
+        raise HTTPException(404, '专业作业界面尚未安装')
+    headers = _ui_headers()
+    headers['Content-Security-Policy'] = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
+    return HTMLResponse(html, headers=headers)
+
+
+@router.get('/operator-assets/{name}')
+async def operator_asset(name: str):
+    allowed={'operator.js','operator.css','operator-native.js','operator-native.css','operator-frame.js','access.js'}
+    if name not in allowed:
+        raise HTTPException(404,'Not found')
+    content = _read_asset(name)
+    if content is None:
+        raise HTTPException(404,'Not found')
+    return PlainTextResponse(content, media_type='text/css' if name.endswith('.css') else 'application/javascript',headers=_ui_headers())

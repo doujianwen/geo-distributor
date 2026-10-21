@@ -1,0 +1,83 @@
+.customer-context {
+  display: flex;
+  align-items: end;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.customer-context label {
+  flex: 1;
+  max-width: 620px;
+}
+.customer-context p {
+  margin: 0 0 10px;
+  flex: 1;
+}
+.customer-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.customer-evidence {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow-wrap: anywhere;
+}
+.customer-evidence h3 {
+  margin-top: 0;
+}
+.customer-review {
+  margin: 18px 0;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.customer-review ol {
+  padding-left: 24px;
+}
+.customer-review details {
+  margin-top: 12px;
+}
+.customer-report-search {
+  max-width: 500px;
+  margin-bottom: 20px;
+}
+.customer-context small {
+  display: block;
+}
+@media screen and (max-width: 760px) {
+  .customer-summary {
+    grid-template-columns: 1fr;
+  }
+  .customer-context {
+    gap: 6px;
+  }
+  .customer-review {
+    padding: 14px;
+  }
+}
+@media print {
+  .customer-context,
+  .customer-report-search,
+  .customer-review form {
+    display: none;
+  }
+  .customer-summary {
+    display: block;
+  }
+  .customer-evidence {
+    break-inside: avoid;
+  }
+  .customer-review {
+    break-inside: avoid;
+  }
+}
+
+/* Shared growth workspace */
+.growth-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:18px 0;padding:10px;background:#edf4ff;border-radius:12px}.growth-tabs a{padding:9px 12px;border-radius:8px;text-decoration:none;color:#24446e;font-weight:600}.growth-tabs a.on{background:#235cd6;color:white}.growth-context{display:flex;gap:18px;align-items:end;flex-wrap:wrap}.growth-context label{min-width:200px;max-width:100%;flex:1}.growth-context select{width:100%}.growth-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.growth-stats div{background:#f2f7ff;border:1px solid #d9e6ff;border-radius:10px;padding:20px}.growth-stats strong{display:block;font-size:30px;color:#2058c4}.growth-stats span{display:block;margin-top:8px}.growth-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.growth-fields label{display:flex;flex-direction:column;gap:6px;min-width:0}.growth-fields input,.growth-fields textarea,.growth-fields select{width:100%;box-sizing:border-box;min-width:0}.growth-fields input[type=checkbox]{width:20px;height:20px}.growth-editor{background:white;border:1px solid #d4e1f1;border-radius:12px;padding:16px;margin:14px 0}.growth-editor summary{cursor:pointer;font-weight:700;color:#2357b6}.growth-editor form{padding-top:14px}.growth-editor button{margin-top:14px}.growth-error{color:#9c2737;margin-top:12px}.growth-item{border:1px solid #e0e7ef;border-radius:10px;padding:12px 16px;margin:12px 0;overflow-wrap:anywhere;break-inside:avoid}.growth-item p{margin:6px 0;white-space:pre-wrap}.growth-list input{max-width:100%;width:100%;box-sizing:border-box}.growth-report{overflow-wrap:anywhere}.growth-workspace .card{margin-top:18px}.growth-workspace .eyebrow{color:#2761ce;font-size:13px;letter-spacing:.08em;font-weight:700}
+@media(max-width:600px){.growth-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.growth-stats div{padding:14px}.growth-fields{grid-template-columns:1fr}.growth-tabs{gap:4px;padding:8px}.growth-tabs a{padding:8px;font-size:13px}.growth-context{display:block}.growth-context label{min-width:0}.growth-item{padding:10px}.growth-editor{padding:12px}}
+@media print{.growth-tabs,.growth-context,.growth-editor,.growth-workspace>.page-heading,#growth-print{display:none!important}.growth-report .card{box-shadow:none;border:0;padding:0;break-inside:auto}.growth-report .growth-item{break-inside:auto}.growth-report{font-size:10pt}.growth-report p{overflow-wrap:anywhere}nav,aside,header,.demo-banner,.demo-switch,.customer-context{display:none!important}.workspace{display:block!important}.content{padding:0!important;max-width:none!important}body{background:white!important}.growth-report a[href]:after{content:" (" attr(href) ")"}}
+
+@media print{.growth-report .growth-item{break-inside:avoid-page}.growth-report h1,.growth-report h2,.growth-report h3{break-after:avoid-page}}

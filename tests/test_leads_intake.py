@@ -17,6 +17,7 @@ AUTH_KEYS = (
 def client(monkeypatch, tmp_path):
     monkeypatch.setenv("GEO_DISTRIBUTOR_ENV", "test")
     monkeypatch.setenv("GEO_DISTRIBUTOR_DB", str(tmp_path / "lead-intake.db"))
+    monkeypatch.setenv("GEO_DISTRIBUTOR_AUDIT_DB", str(tmp_path / "lead-audit.db"))
     from api.auth import reset_registry_cache
     reset_registry_cache()
     from api import state
@@ -87,7 +88,7 @@ def test_distributor_cannot_see_unassigned_or_other_tenant_leads(client):
     client.post(f"/leads/{lead_id}/assign", json={"tenant_id": "DST-LEAD-A"}, headers=_headers())
     assert len(client.get("/leads", headers=_headers("sk-test-lead-a")).json()) == 1
     assert client.get(f"/leads/{lead_id}", headers=_headers("sk-test-lead-b")).status_code == 404
-    assert client.get("/leads?tenant_id=DST-LEAD-A", headers=_headers("sk-test-lead-b")).json() == []
+    assert client.get("/leads?tenant_id=DST-LEAD-A", headers=_headers("sk-test-lead-b")).status_code == 403
 
 
 def test_assignment_rejects_unregistered_distributor_tenant(client):
@@ -114,9 +115,11 @@ def test_hq_can_convert_assigned_lead_to_client_request_project(client):
         headers=_headers(),
     )
     assert converted.status_code == 200, converted.text
-    assert converted.json()["intake_status"] == "converted_project"
+    assert converted.json()["intake_status"] == "converted_request"
     assert converted.json()["request_id"]
-    assert converted.json()["project_id"]
+    assert not converted.json()["project_id"]
+    # Conversion is intake only: no project exists before explicit management approval.
+    assert client.get("/projects", headers=_headers("sk-test-lead-a")).json() == []
     repeated = client.post(
         f"/leads/{lead_id}/convert",
         json={"target_market": ["US"], "target_products": ["Example"], "business_question": "Visibility diagnostic"},

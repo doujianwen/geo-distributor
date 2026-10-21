@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from typing import Annotated, Optional
 
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, Header, HTTPException, Query
 
 from .auth import AuthContext, resolve_tenant, verify_api_key
 
@@ -32,9 +32,10 @@ API_KEY_HEADER = "X-API-Key"
 TENANT_HEADER = "X-Tenant-ID"
 
 
-def authenticate(
-    x_api_key: Annotated[Optional[str], Header(alias=API_KEY_HEADER)] = None,
-    x_tenant_id: Annotated[Optional[str], Header(alias=TENANT_HEADER)] = None,
+def _authenticate_context(
+    x_api_key: str | None,
+    x_tenant_id: str | None,
+    tenant_id: str | None,
 ) -> AuthContext:
     """FastAPI 依赖：认证 + tenant 解析。失败即抛 HTTPException。"""
     ctx = verify_api_key(x_api_key)
@@ -58,7 +59,11 @@ def authenticate(
             },
         )
 
-    tenant_id, err_status, err_detail = resolve_tenant(ctx, x_tenant_id)
+    if x_tenant_id and tenant_id and x_tenant_id != tenant_id:
+        raise HTTPException(status_code=403, detail="Conflicting tenant context")
+    # BFF never forwards credential/tenant headers. HQ may select an explicit
+    # resource scope in the query; resolve_tenant still enforces its HQ role.
+    tenant_id, err_status, err_detail = resolve_tenant(ctx, x_tenant_id or tenant_id)
     if err_status is not None:
         raise HTTPException(status_code=err_status, detail=err_detail)
 
@@ -68,13 +73,52 @@ def authenticate(
         role=ctx.role,
         user_id=ctx.user_id,
         is_hq=ctx.is_hq,
+        client_id=ctx.client_id,
+        credential_fingerprint=ctx.credential_fingerprint,
     )
+
+
+def authenticate(
+    x_api_key: Annotated[Optional[str], Header(alias=API_KEY_HEADER)] = None,
+    x_tenant_id: Annotated[Optional[str], Header(alias=TENANT_HEADER)] = None,
+    tenant_id: Annotated[Optional[str], Query()] = None,
+) -> AuthContext:
+    ctx = _authenticate_context(x_api_key, x_tenant_id, tenant_id)
+    if ctx.role in {"END_CUSTOMER", "END_CUSTOMER_EDITOR"}:
+        raise HTTPException(403, "请使用客户专用接口")
+    return ctx
+
+
+async def authenticate_customer(
+    x_api_key: Annotated[Optional[str], Header(alias=API_KEY_HEADER)] = None,
+    x_tenant_id: Annotated[Optional[str], Header(alias=TENANT_HEADER)] = None,
+    x_client_id: Annotated[Optional[str], Header(alias="X-Client-ID")] = None,
+    tenant_id: Annotated[Optional[str], Query()] = None,
+    client_id: Annotated[Optional[str], Query()] = None,
+) -> AuthContext:
+    ctx = _authenticate_context(x_api_key, x_tenant_id, tenant_id)
+    if ctx.role not in {"END_CUSTOMER", "END_CUSTOMER_EDITOR"} or not ctx.client_id:
+        raise HTTPException(403, "此入口仅供绑定企业的客户使用")
+    if any(v and v != ctx.client_id for v in (x_client_id, client_id)):
+        raise HTTPException(403, "不能切换客户身份")
+    from .routers.clients import _load_client
+    client = await _load_client(ctx.client_id, ctx.tenant_id)
+    if not client or not client.is_active:
+        raise HTTPException(403, "客户访问权限已停用，请联系服务团队")
+    return ctx
 
 
 def require_write(auth: AuthContext = Depends(authenticate)) -> AuthContext:
     """FastAPI 依赖：写权限校验（CLIENT_VIEWER 禁止写）。"""
     if not auth.can_write():
         raise HTTPException(status_code=403, detail="Role is not permitted to write")
+    return auth
+
+
+def require_hq(auth: AuthContext = Depends(require_write)) -> AuthContext:
+    """Delivery lifecycle belongs to HQ, including direct API calls."""
+    if not auth.is_hq:
+        raise HTTPException(status_code=403, detail="Only HQ roles may manage delivery")
     return auth
 
 

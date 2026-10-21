@@ -8,10 +8,16 @@ from pydantic import BaseModel, Field
 
 from .. import state
 from geo_distributor.repositories.base import PermissionError as RepoPermissionError
-from ..deps import authenticate, require_write
+from ..deps import authenticate, require_write, require_hq
 from geo_distributor.models import ServiceStage, DEFAULT_STAGE_SEQUENCE
 
 router = APIRouter(prefix="/projects", tags=["projects"])
+
+
+@router.get("/{project_id}/geo")
+async def get_geo_view(project_id: str, auth=Depends(authenticate)):
+    from ..geo_view import geo_view
+    return await geo_view(project_id, auth.tenant_id)
 
 
 # ------------------------------------------------------------------
@@ -52,6 +58,8 @@ class ProjectOut(BaseModel):
     report_ids: List[str]
     created_at: str
     updated_at: str
+    blocked_reason: dict | None = None
+    request_summary: dict = Field(default_factory=dict)
 
     model_config = {"from_attributes": True}
 
@@ -86,6 +94,10 @@ async def _project_response(project) -> ProjectOut:
         "target_market": list(getattr(context, "target_market", []) or []) if context else [],
         "target_languages": list(getattr(context, "target_languages", []) or []) if context else [],
         "service_duration": getattr(context, "service_duration", "to_be_determined") if context else "to_be_determined",
+        "request_summary": {"request_id": project.request_id,
+                            "status": getattr(getattr(request, "status", None), "value", ""),
+                            "business_question": getattr(context, "business_question", "") if context else "",
+                            "scope": (getattr(request, "workflow", {}) or {}).get("scope")},
     })
     return ProjectOut(**payload)
 
@@ -120,8 +132,10 @@ async def _load_project(project_id: str, tenant_id: str):
 # ------------------------------------------------------------------
 
 @router.post("", response_model=ProjectOut, status_code=201)
-async def create_project(body: ProjectCreate, auth=Depends(require_write)):
+async def create_project(body: ProjectCreate, auth=Depends(require_hq)):
     """快速创建 Project — 走 Intake → Scoping → Approve 全链路。"""
+    if auth.role != "HQ_MANAGEMENT":
+        raise HTTPException(403, detail="仅总部管理角色可直接确认创建项目；渠道商请使用需求入口")
     svc = state.project_service
     if svc is None:
         raise HTTPException(status_code=503, detail="API not initialized")
@@ -193,127 +207,42 @@ async def get_project(
     return await _project_response(project)
 
 
-@router.post("/{project_id}/start", response_model=dict)
-async def start_project(
-    project_id: str,
-    x_tenant_id: Annotated[str | None, Header(alias="X-Tenant-ID")] = None,
-    auth=Depends(require_write),
-):
-    tenant_id = auth.tenant_id  # B-2: 取认证 tenant，header 已交叉校验
-    project = await _load_project(project_id, tenant_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    svc = state.project_service
-    if svc is None:
-        raise HTTPException(status_code=503, detail="API not initialized")
-    result = await svc.start_execution(project_id=project_id, user_role="hq_technical")
-    if not result.get("success"):
-        raise HTTPException(status_code=400, detail=result.get("message", "Start failed"))
-    return result
-
-
-class StageAdvanceRequest(BaseModel):
-    """推进服务阶段的请求体。"""
-    target_stage: str | None = Field(
-        None,
-        description="目标阶段 site_diagnosis / competitor_analysis / optimization / effect_monitoring；缺省则推进到线性下一阶段",
-    )
+class LifecycleInput(BaseModel):
+    expected_updated_at: str = Field(default="", max_length=100)
+    target_stage: str | None = None
     finding_ids: list[str] = Field(default_factory=list)
     measurement_ids: list[str] = Field(default_factory=list)
     report_ids: list[str] = Field(default_factory=list)
 
 
-@router.post("/{project_id}/stage", response_model=dict)
-async def advance_stage(
-    project_id: str,
-    body: StageAdvanceRequest | None = None,
-    x_tenant_id: Annotated[str | None, Header(alias="X-Tenant-ID")] = None,
-    auth=Depends(require_write),
-):
-    """推进客户服务四阶段。
-
-    默认按 网站诊断 → 竞品分析 → 优化提升 → 效果监控 线性推进；
-    也可指定 target_stage 回退（如监控发现问题后回到优化）。
-    """
-    tenant_id = auth.tenant_id  # B-2: 取认证 tenant，header 已交叉校验
-    repo = _get_project_repo()
-    project = await _load_project(project_id, tenant_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    body = body or StageAdvanceRequest()
-    before = project.service_stage.value
-
-    # 先登记当前阶段产出（若有）
-    if body.finding_ids or body.measurement_ids or body.report_ids:
-        project.record_stage_output(
-            finding_ids=body.finding_ids or None,
-            measurement_ids=body.measurement_ids or None,
-            report_ids=body.report_ids or None,
-        )
-
-    if body.target_stage:
+async def _lifecycle(project_id, body, key, auth, action):
+    from ..hq_service import project_operation
+    payload = (body or LifecycleInput()).model_dump()
+    if payload.get("target_stage"):
         try:
-            target = ServiceStage(body.target_stage)
+            ServiceStage(payload["target_stage"])
         except ValueError:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unknown stage '{body.target_stage}'; "
-                       f"valid: {[s.value for s in DEFAULT_STAGE_SEQUENCE]}",
-            )
-        if not project.can_advance_to(target):
-            raise HTTPException(
-                status_code=409,
-                detail=f"Illegal transition {before} -> {target}",
-            )
-        ok = project.advance_stage(target)
-    else:
-        ok = project.advance_stage()
-        if not ok:
-            raise HTTPException(
-                status_code=409,
-                detail=f"Cannot advance from {before} (already final stage)",
-            )
-
-    await repo.update(project)
-
-    return {
-        "success": True,
-        "project_id": project_id,
-        "from_stage": before,
-        "to_stage": project.service_stage.value,
-        "stage_label": project.service_stage.label,
-        "stage_progress": project.stage_progress,
-    }
+            raise HTTPException(422, "请选择有效服务阶段")
+    payload["action"] = action
+    return project_operation(project_id, payload, key, auth)
 
 
-@router.post("/{project_id}/stage/complete", response_model=dict)
-async def complete_stage(
-    project_id: str,
-    x_tenant_id: Annotated[str | None, Header(alias="X-Tenant-ID")] = None,
-    auth=Depends(require_write),
-):
-    """标记当前阶段完成。
+@router.post("/{project_id}/start")
+async def start_project(project_id: str, body: LifecycleInput | None = None,
+                        idempotency_key: Annotated[str | None, Header()] = None, auth=Depends(require_hq)):
+    return await _lifecycle(project_id, body, idempotency_key, auth, "start")
 
-    最终阶段（效果监控）无法再"推进"，需显式调用本端点收口，
-    否则 stage_progress 会永久停在 75% 以下。
-    """
-    tenant_id = auth.tenant_id  # B-2: 取认证 tenant，header 已交叉校验
-    repo = _get_project_repo()
-    project = await _load_project(project_id, tenant_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
 
-    project.complete_current_stage()
-    await repo.update(project)
+@router.post("/{project_id}/stage")
+async def advance_stage(project_id: str, body: LifecycleInput | None = None,
+                        idempotency_key: Annotated[str | None, Header()] = None, auth=Depends(require_hq)):
+    return await _lifecycle(project_id, body, idempotency_key, auth, "advance")
 
-    return {
-        "success": True,
-        "project_id": project_id,
-        "completed_stage": project.service_stage.value,
-        "stage_label": project.service_stage.label,
-        "stage_progress": project.stage_progress,
-    }
+
+@router.post("/{project_id}/stage/complete")
+async def complete_stage(project_id: str, body: LifecycleInput | None = None,
+                         idempotency_key: Annotated[str | None, Header()] = None, auth=Depends(require_hq)):
+    return await _lifecycle(project_id, body, idempotency_key, auth, "complete")
 
 
 @router.get("/{project_id}/stage", response_model=dict)
@@ -377,16 +306,12 @@ async def deliver_project(
     body = body or DeliverRequest()
     observations = body.observations
     findings = body.findings
+    latest = None
 
     if not observations:
-        # 默认取最近一次采集（同进程热缓存优先，其次持久化投影表）。
-        latest = None
-        cached = state._measurement_results.get(project_id, [])
-        if cached:
-            latest = cached[-1]
-        elif state.measurement_repo is not None:
-            persisted = await state.measurement_repo.list_by_project(project_id, tenant_id)
-            latest = persisted[0] if persisted else None
+        from ..geo_view import load_measurements, _time
+        saved = await load_measurements(project_id, tenant_id)
+        latest = max(saved, key=lambda r: _time(r.get("collected_at")).timestamp() if _time(r.get("collected_at")) else float("-inf")) if saved else None
         if latest is None:
             raise HTTPException(
                 status_code=409,
@@ -403,6 +328,16 @@ async def deliver_project(
         findings=findings,
         executed_by=auth.user_id,
     )
+    # Link only a newly created report. Replays must never relabel historical scope.
+    if latest and delivery.get("status") != "ALREADY_DELIVERED":
+        report = await state.report_service.get_report(delivery["report_id"], tenant_id=tenant_id)
+        if report:
+            report["measurement_id"] = latest.get("measurement_id")
+            repo = getattr(state.report_service, "_repository", None)
+            if repo is not None:
+                await repo.upsert(report)
+            else:
+                state.report_service._reports[report["report_id"]] = report
     return delivery
 
 
@@ -410,7 +345,7 @@ async def deliver_project(
 async def delete_project(
     project_id: str,
     x_tenant_id: Annotated[str | None, Header(alias="X-Tenant-ID")] = None,
-    auth=Depends(require_write),
+    auth=Depends(require_hq),
 ):
     tenant_id = auth.tenant_id  # B-2: 取认证 tenant，header 已交叉校验
     repo = _get_project_repo()

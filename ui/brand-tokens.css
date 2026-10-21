@@ -1,0 +1,34 @@
+/* GENERATED FILE - DO NOT EDIT BY HAND
+ * source        : tools/brand-tokens/brand-tokens.json
+ * source-version: 1.0.0
+ * source-sha256 : c1f3ca68ca83e490d5387e6e5252d473fa2be6697eb2180fb53bad77ddeb815c
+ * generated-by  : tools/brand-tokens/build_brand_tokens.py
+ * target        : backend (geo-distributor/ui/brand-tokens.css)
+ * ---------------------------------------------------------------------------
+ * 校验命令: python tools/brand-tokens/build_brand_tokens.py --check
+ * 任何手改都会被该命令检出并导致非零退出。
+ */
+
+/* 品牌共享层（官网 + 后台） */
+:root {
+  --brand-primary: #1B4DFF;                   /* 品牌主色（官网 --ggs-primary / 后台 --brand 共同引用） */
+  --brand-primary-hover: #0F3AD6;             /* 主色悬停/按下 */
+  --brand-primary-soft: #EEF2FF;              /* 主色浅底（标签/选中底） */
+  --brand-ink: #162741;                       /* 后台任务层正文墨色（官网展示层不用） */
+  --brand-accent-data: #00A38B;               /* 官网数据强调色 */
+  --brand-orange: #FF7A00;                    /* 官网克制橙色强调（后台不用） */
+  --brand-orange-dark: #E8630A;               /* 橙色深一档 */
+  --focus-ring: #1B4DFF;                      /* 浅底焦点环。白底 5.91:1 / #f4f7fc 5.51:1，WCAG 1.4.11 需 >=3:1 */
+  --focus-ring-ondark: #7ea2f7;               /* 深底焦点环。hero 最亮端 #1c3d7d 4.17:1 / 报告卡 #152343 6.21:1 / 最暗端 #0e1730 7.09:1 */
+  --focus-ring-width: 2px;                /* 全站统一焦点环宽度 */
+  --focus-ring-offset: 2px;               /* 全站统一焦点环偏移 */
+  --state-success: #0E7C66;                   /* 已验证/成功态（官网 --ggs-proven 同值） */
+  --state-warning: #B45309;                   /* 警告态。对白底 5.24:1 */
+  --state-danger: #C0392B;                    /* 错误态。对白底 5.44:1 */
+  --state-info: #3155A0;                      /* 提示态（后台 notice 现有值）。对白底 7.15:1 */
+  --radius-control: 8px;                  /* 控件圆角（按钮/输入/选择器） */
+  --radius-surface: 14px;                  /* 面/卡片圆角 */
+  --font-sans-site: Manrope,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;                  /* 官网字体栈（自托管 woff2，无外部 CDN） */
+  --font-mono-site: "Fira Code",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;                  /* 官网等宽字体栈 */
+  --font-sans-task: system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;                  /* 后台任务层字体栈（系统字体，零外部依赖） */
+}

@@ -29,6 +29,9 @@ class ReportOut(BaseModel):
     limitations: List[str]
     next_steps: List[str]
     created_at: str
+    data_quality: dict = Field(default_factory=dict)
+    geo_snapshot: dict | None = None
+    is_demo: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -59,6 +62,15 @@ def report_to_out(r: dict) -> dict:
     out["key_findings"] = pick("key_findings", [])
     out["limitations"] = pick("limitations", [])
     out["next_steps"] = pick("next_steps", [])
+    # Historical reports have no auditable valid denominator. Do not infer one
+    # or rewrite stored numbers; hide unsupported headline metrics in the UI.
+    out["data_quality"] = {
+        "status": "legacy_unverified",
+        "valid_queries": None,
+        "period": None,
+        "source": None,
+        "note": "历史汇总未提供可核验的有效分母与测量窗口；指标不作为当前效果结论。",
+    }
     return out
 
 
@@ -107,7 +119,8 @@ async def list_reports(
     reports = await svc.list_reports(project_id, tenant_id=tenant_id)
     if any(r.get("tenant_id") != tenant_id for r in reports):  # B-1 双保险
         raise HTTPException(status_code=404, detail="Report not found")
-    return [ReportOut(**report_to_out(r)) for r in reports]
+    from ..geo_view import report_projection
+    return [ReportOut(**await report_projection(r)) for r in reports if r.get("is_client_safe") is True]
 
 
 @router.get("/{report_id}", response_model=ReportOut)
@@ -121,8 +134,9 @@ async def get_report(
     if svc is None:
         raise HTTPException(status_code=503, detail="API not initialized")
     report = await svc.get_report(report_id, tenant_id=tenant_id)
-    if not report:
+    if not report or report.get("is_client_safe") is not True:
         raise HTTPException(status_code=404, detail="Report not found")
     if report.get("tenant_id") != tenant_id:  # B-1
         raise HTTPException(status_code=404, detail="Report not found")
-    return ReportOut(**report_to_out(report))
+    from ..geo_view import report_projection
+    return ReportOut(**await report_projection(report))

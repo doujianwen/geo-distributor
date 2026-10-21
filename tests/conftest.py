@@ -92,6 +92,8 @@ def _b2_registry(monkeypatch, request):
         keys = own
 
     monkeypatch.setenv("GEO_DISTRIBUTOR_ENV", "test")
+    # Fixture-only integration actors; real professional sessions require WordPress people.
+    monkeypatch.setenv('GEO_OPERATOR_ALLOW_SERVICE_ACTORS','1')
     monkeypatch.setenv("GEO_DISTRIBUTOR_API_KEYS", keys)
 
     # 清空注册表缓存，让新配置立即生效
