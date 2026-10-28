@@ -197,7 +197,7 @@
     $("retry").onclick = route;
   }
   function login(message = "") {
-    app.innerHTML = `<section class="card login-card"><div class="report-brand">我的 GEO 增长服务</div><h1>登录 GEO 工作区</h1><p>使用自己注册的账号与密码登录。总部开通权限后，系统会展示您所属的企业、项目与可用功能。</p><p><a class="btn" href="http://geo-growth.local/?geo_workspace_login=1">使用个人账号登录</a></p><div id="login-msg">${message ? note(message, "warn") : ""}</div><details><summary>维护与集成验证入口</summary><p class="small muted">此入口供已获授权的维护人员验证现有集成。</p><form id="login-form"><div class="field"><label for="access-code">维护访问码</label><input id="access-code" type="password" required maxlength="512" autocomplete="off"></div><button class="btn">验证访问</button></form></details>${info.demo ? '<hr><h2>先体验虚拟客户案例</h2><p>全部数据虚构，只读体验。</p><button class="btn ghost" id="demo-enter">进入客户演示</button>' : info.demo_url ? `<hr>${a(info.demo_url, "体验虚拟客户案例", "btn ghost")}` : ""}<p class="small muted">账号开通与项目授权请联系服务团队。维护访问码不保存在浏览器。</p></section>`;
+    app.innerHTML = `<section class="card login-card"><div class="report-brand">我的 GEO 增长服务</div><h1>登录 GEO 工作区</h1><p>使用自己注册的账号与密码登录。总部开通权限后，系统会展示您所属的企业、项目与可用功能。</p><p><a class="btn" id="personal-login" href="${window.location.origin}/?geo_workspace_login=1">使用个人账号登录</a></p><div id="login-msg">${message ? note(message, "warn") : ""}</div><details><summary>维护与集成验证入口</summary><p class="small muted">此入口供已获授权的维护人员验证现有集成。</p><form id="login-form"><div class="field"><label for="access-code">维护访问码</label><input id="access-code" type="password" required maxlength="512" autocomplete="off"></div><button class="btn">验证访问</button></form></details>${info.demo ? '<hr><h2>先体验虚拟客户案例</h2><p>全部数据虚构，只读体验。</p><button class="btn ghost" id="demo-enter">进入客户演示</button>' : info.demo_url ? `<hr>${a(info.demo_url, "体验虚拟客户案例", "btn ghost")}` : ""}<p class="small muted">账号开通与项目授权请联系服务团队。维护访问码不保存在浏览器。</p></section>`;
     async function enter(isDemo) {
       const response = await fetch(
         BASE + (isDemo ? "demo-session" : "session"),
@@ -222,7 +222,7 @@
       paint();
       route();
     }
-    const personalLink=app.querySelector('a[href="http://geo-growth.local/?geo_workspace_login=1"]');
+    const personalLink=app.querySelector('#personal-login');
     if(personalLink&&!info.identity_enabled){personalLink.removeAttribute('href');personalLink.setAttribute('aria-disabled','true');personalLink.textContent='个人账号入口待总部配置';}
     $("login-form").onsubmit = async (e) => {
       e.preventDefault();

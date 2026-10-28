@@ -1516,7 +1516,7 @@
     const loginCard = document.getElementById('login-form').closest('section');
     loginCard.querySelector('h1').textContent='登录 GEO 工作区';
     loginCard.querySelector('p.muted').textContent='使用自己的账号登录，工作区由总部开通。';
-    const accountLink=document.createElement('a');accountLink.className='btn';accountLink.href='http://geo-growth.local/?geo_workspace_login=1';accountLink.textContent='使用我的网站账号登录';
+    const accountLink=document.createElement('a');accountLink.className='btn';accountLink.href=window.location.origin + '/?geo_workspace_login=1';accountLink.textContent='使用我的网站账号登录';
     if(!demoInfo.identity_enabled){accountLink.removeAttribute('href');accountLink.setAttribute('aria-disabled','true');accountLink.textContent='个人账号入口待总部配置';}
     document.getElementById('login-msg').before(accountLink);
     const maintenance=document.createElement('details');maintenance.innerHTML='<summary>集成维护入口</summary>';
