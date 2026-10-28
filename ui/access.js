@@ -129,11 +129,16 @@
   function summaryCard(r, i) {
     const label = { approved: '已开通', suspended: '已暂停', rejected: '未通过' }[r.status] || r.status;
     const on = r.status === 'approved';
+    // 2026-10-28 加固：总部(HQ_)账号不在此自助面板显示「暂停/恢复」按钮，
+    // 否则总部管理员极易误点把自己锁死、失去审批能力。HQ 账号由部署脚本统一管理。
+    const isHq = (r.role || '').startsWith('HQ_');
     return `<div class="approval-summary"><h3>${e(r.subject)}</h3>`
       + `<p class="muted">状态：${label} ｜ 身份：${e(r.role || '-')}${r.client ? ' ｜ 客户：' + e(r.client) : ''}</p>`
       + (r.status === 'rejected'
           ? '<p class="muted">该申请未通过，如需开通请在网站重新发起。</p>'
-          : `<button class="btn" data-toggle="${i}">${on ? '暂停访问' : '恢复访问'}</button>`)
+          : isHq
+            ? '<p class="muted">总部管理账号由部署脚本统一管理，不在此处暂停/恢复。</p>'
+            : `<button class="btn" data-toggle="${i}">${on ? '暂停访问' : '恢复访问'}</button>`)
       + `</div>`;
   }
 
