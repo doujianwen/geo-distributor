@@ -52,17 +52,27 @@ _DEV_BUILTIN_TENANT = "DST-LOCAL-DEV"
 REGISTRY_FILE = Path(__file__).resolve().parent.parent / "config" / "api_keys.json"
 
 # 可写操作所需角色。CLIENT_VIEWER 不在其中。
+#
+# HQ_INTAKE 是 2026-10-28 新增的**最小权限**角色，专供官网表单服务端投递线索：
+# 它必须能通过 require_write（否则 POST /leads 被挡），但**刻意不进 HQ_ROLES**——
+# 官网密钥存在 wp-config.php 里，www-data 可读，是暴露面最大的一份凭据。
+# 若沿用 HQ_TECHNICAL/HQ_MANAGEMENT，一次 WordPress 插件漏洞就能换到全租户读写；
+# 用 HQ_INTAKE 后最坏结果只是「往 HQ-INTAKE 队列灌垃圾线索」。
 WRITE_ROLES = frozenset(
     {
         "DISTRIBUTOR_ADMIN",
         "DISTRIBUTOR_USER",
         "HQ_TECHNICAL",
         "HQ_MANAGEMENT",
+        "HQ_INTAKE",
     }
 )
 
-# 允许跨 tenant 的角色。
+# 允许跨 tenant 的角色。HQ_INTAKE 刻意不在此列。
 HQ_ROLES = frozenset({"HQ_TECHNICAL", "HQ_MANAGEMENT"})
+
+# 仅供官网表单投递线索的角色：不可跨租户，也不能调用 require_hq 端点。
+INTAKE_ROLE = "HQ_INTAKE"
 
 
 # ------------------------------------------------------------

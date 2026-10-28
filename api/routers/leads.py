@@ -203,7 +203,8 @@ async def intake_lead(
     """
     # Website ingestion is a privileged server-to-server operation; distributor
     # credentials may read/assign within their scope but cannot inject anonymous leads.
-    if not auth.is_hq:
+    # HQ_INTAKE 是最小权限的官网投递角色（不跨租户），见 api/auth.py 的说明。
+    if not (auth.is_hq or auth.role == "HQ_INTAKE"):
         raise HTTPException(status_code=403, detail="HQ integration role required")
 
     source = (body.source or SOURCE_DEFAULT).strip().lower()

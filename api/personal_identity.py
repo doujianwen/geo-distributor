@@ -163,6 +163,22 @@ async def enter(ticket: str, request: Request):
     return response
 
 
+def _public_base(request: Request) -> str:
+    """对外站点根地址（不带结尾斜杠）。
+
+    2026-10-28 修复：这里原本硬编码 `http://geo-growth.local/portal/`，
+    在生产上点「返回」会跳到不存在的本地域名。改为按请求推导：
+    uvicorn 开了 proxy_headers，X-Forwarded-* 已被解析成公网域名。
+    可用 GEO_PUBLIC_SITE_URL 显式覆盖（例如放到别的域名后面时）。
+    """
+    override = (os.environ.get('GEO_PUBLIC_SITE_URL') or '').strip().rstrip('/')
+    if override:
+        return override
+    proto = (request.headers.get('x-forwarded-proto') or request.url.scheme or 'https').split(',')[0].strip()
+    host = (request.headers.get('x-forwarded-host') or request.headers.get('host') or '').split(',')[0].strip()
+    return f'{proto}://{host}' if host else ''
+
+
 @router.get('/ui/account/')
 async def account_status(request: Request):
     import html
@@ -175,9 +191,31 @@ async def account_status(request: Request):
         c.close()
     if not row:
         raise HTTPException(401, '请从网站使用自己的账号登录')
-    label = {'pending': '申请已收到，等待总部开通权限', 'approved': '权限已开通，请从网站重新进入工作区', 'rejected': '申请暂未通过，请联系服务团队', 'suspended': '访问权限已暂停，请联系服务团队'}.get(row['status'], '请联系服务团队')
-    # VC-11：空态必须给出一个可聚焦的主动作，指向官网工作区入口（只读跳转，不改动任何状态或权限）。
-    return HTMLResponse('<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>账号开通状态</title><link rel="stylesheet" href="/ui/app.css"><main class="login-card"><h1>账号开通状态</h1><p>' + html.escape(label) + '</p><p>无需选择角色或输入接入密钥。</p><p><a class="btn" href="http://geo-growth.local/portal/">返回官网工作区入口</a></p></main></html>', headers=ui._ui_headers())
+    status = row['status']
+    label = {'pending': '申请已收到，等待总部开通权限', 'approved': '权限已开通，请从网站重新进入工作区', 'rejected': '申请暂未通过，请联系服务团队', 'suspended': '访问权限已暂停，请联系服务团队'}.get(status, '请联系服务团队')
+    base = _public_base(request)
+    home = (base + '/') if base else '/'
+    # 已开通时直接给出重新进入的动作，避免用户在同一页反复刷新。
+    action = ''
+    if status == 'approved' and base:
+        action = f'<p><a class="btn" href="{html.escape(base)}/?geo_workspace_login=1">重新进入工作区</a></p>'
+    # VC-11：空态必须给出一个可聚焦的主动作，指向官网（只读跳转，不改动任何状态或权限）。
+    # 注意：brand-tokens.css 必须排在 app.css 之前——app.css 的 --brand 引用了
+    # 其中的 --brand-primary，缺了它 .btn 的背景会失效、白字落在白底上不可见。
+    body = (
+        '<!doctype html><html lang="zh-CN"><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<title>账号开通状态</title>'
+        '<link rel="stylesheet" href="/ui/brand-tokens.css">'
+        '<link rel="stylesheet" href="/ui/app.css">'
+        '<main class="login-card"><h1>账号开通状态</h1>'
+        f'<p>{html.escape(label)}</p>'
+        '<p>无需选择角色或输入接入密钥。账号密码由官网管理，权限由服务团队开通。</p>'
+        + action
+        + f'<p><a class="btn ghost" href="{html.escape(home)}">返回官网首页</a></p>'
+        '</main></html>'
+    )
+    return HTMLResponse(body, headers=ui._ui_headers())
 
 
 async def requests(ctx):
