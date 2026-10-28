@@ -4,6 +4,9 @@
   const uiBase = /^\/(ui|portal)\/hq\//.test(location.pathname) ? "/ui/hq" : "/ui";
   const app = document.getElementById("app"),
     $ = (id) => document.getElementById(id);
+  // 官网首页链接：动态取当前域名（生产/本地开发均正确），避免硬编码本地域。
+  const homeLink = $("home-link");
+  if (homeLink) homeLink.href = window.location.origin + "/";
   let session = null,
     epoch = 0,
     tenant = "",
