@@ -268,9 +268,13 @@
       ["clients", "我的客户"],
       ["projects", session.is_hq ? "需求受理与项目" : "需求与项目"],
     ];
-    const tabs = [["operator/dashboard", "专业作业台"], ["growth/overview", "增长证据与交付"], ...businessTabs,
-      ...(session.role === 'HQ_MANAGEMENT' ? [["access", "账号与作业授权"]] : [])];
-    app.innerHTML = `<div class="workspace"><aside class="sidebar"><div class="workspace-label">${session.is_hq ? "GEO 总部管理与运营" : "GEO 合作伙伴工作区"}</div><button class="btn ghost menu-toggle" id="menu" aria-controls="nav" aria-expanded="false">工作区导航 · 展开</button><nav id="nav" aria-label="工作区导航">${tabs.map(([k, s]) => `<a href="#/${k}" ${(k === active || (active === "growth" && k === "growth/overview")) ? 'class="on" aria-current="page"' : ""}>${s}</a>`).join("")}</nav><p class="sidebar-note">渠道商连接客户<br>总部负责专业交付</p></aside><div class="content" id="view" tabindex="-1">${html}</div></div>`;
+    // 角色感知排序：业务中枢(home)在前，GEO 交付/执行在后；功能说明始终最末
+    const deliveryTabs = [["growth/overview", "增长证据与交付"], ["operator/dashboard", "专业作业台"]];
+    const tabs = session.is_hq
+      ? [...businessTabs, ...deliveryTabs, ...(session.role === 'HQ_MANAGEMENT' ? [["access", "账号与作业授权"]] : [])]
+      : [...businessTabs, ...deliveryTabs];
+    const allTabs = [...tabs, ["help", "功能说明"]];
+    app.innerHTML = `<div class="workspace"><aside class="sidebar"><div class="workspace-label">${session.is_hq ? "GEO 总部管理与运营" : "GEO 合作伙伴工作区"}</div><button class="btn ghost menu-toggle" id="menu" aria-controls="nav" aria-expanded="false">工作区导航 · 展开</button><nav id="nav" aria-label="工作区导航">${allTabs.map(([k, s]) => `<a href="#/${k}" ${(k === active || (active === "growth" && k === "growth/overview")) ? 'class="on" aria-current="page"' : ""}>${s}</a>`).join("")}</nav><p class="sidebar-note">渠道商连接客户<br>总部负责专业交付</p></aside><div class="content" id="view" tabindex="-1">${html}</div></div>`;
     $("menu").onclick = () => {
       const open = $("menu").getAttribute("aria-expanded") !== "true";
       $("menu").setAttribute("aria-expanded", String(open));
@@ -1590,7 +1594,7 @@
         session = s;
         $("key").value = "";
         paint();
-        if (location.hash === "#/login") location.hash = "#/growth/overview";
+        if (location.hash === "#/login") location.hash = "#/dashboard";
         else route();
       } catch (e) {
         $("login-msg").innerHTML = notice(e.message, "err");
@@ -1598,6 +1602,19 @@
         b.disabled = false;
       }
     };
+  }
+  async function help(token) {
+    shell(
+      "help",
+      heading("渠道商控制台 · 功能说明", "各模块用途与进入条件一览。") +
+        card("整体定位", '<p class="muted">Distributor sells; HQ delivers. 渠道商连接客户、推进商机；总部负责专业交付。所有数据按当前租户（tenant）隔离。</p>') +
+        card("工作台 · 生意面总览", '<p>渠道商每日进入的第一屏，回答「今天该跟什么、哪些客户要推进」。</p><p class="muted">数据来源：当前租户下的需求、项目、客户。</p><ul><li><b>KPI 卡片</b>：待补充资料、待总部确认、进行中项目、客户总数</li><li><b>待处理需求</b>：待补充资料（clarification_required）/ 待总部确认（submitted、intake_review、scoping、scope_pending_approval）</li><li><b>最近项目</b>：按更新时间取最近 8 个</li><li>有写权限（writer）的账号才显示「新建客户」「提交需求」</li></ul>') +
+        card("专业作业台 · 交付面执行台", '<p>进入某个<b>已授权项目</b>做 GEO 内容增长优化操作的地方。按「项目 + 资源（产品/站点）」双重隔离，需项目授予 <code>operate</code>（作业）能力才出现内容。</p><p class="muted">进入前置：① /growth/workspace 中 capabilities.operate 为真的项目；② 项目下至少一个授予你 operate 的资源。</p><p>任一不满足即显示空状态：<i>尚无已授权项目。请联系管理员分配项目及作业权限。</i></p><p><b>子模块</b>：概览 · 产品 · 用户画像 · 场景 · 问句 · 聚类 · 简报 · 引用 · 趋势 · 实体 · 差距 · 关键词 · SEO · 提示词 · 手册</p><p class="muted">写操作走 If-Match 版本校验 + 幂等键；问句/关键词支持分页与 CSV 导出；引用检查属传统记录，不替代质量复核后的测量。</p>') +
+        card("增长证据与交付 · 看结果", '<p>客户/项目维度的 GEO 效果证据模块。与作业台区别：它是「看结果」，作业台是「做执行」。</p>') +
+        card("我的线索 / 我的客户 / 需求与项目", '<ul><li><b>我的线索</b>：渠道商自己的线索池</li><li><b>我的客户</b>：客户列表 + 新建客户（writer 可建）+ 客户详情（档案 / 关联需求 / 项目 / 跳转 GEO 效果）</li><li><b>需求与项目</b>：需求受理与项目交付进度</li></ul>') +
+        card("模块间流转", '<p class="muted">线索 →(建客户)→ 需求 →(总部确认/审批)→ 项目（进行中）→ 专业作业台（执行 GEO 优化）→ 增长证据与交付（看效果）</p>') +
+        card("为什么专业作业台可能是空的", '<p>渠道商管理员默认是「客户与项目管理」身份，未必被授到具体项目的 operate 能力。所以工作台能看（管客户/项目），专业作业台空着（还没被授权进项目实操）——这是设计如此，不是故障。补一个项目级作业授权即可。</p>')
+    );
   }
   async function route() {
     if (!session) {
@@ -1617,7 +1634,11 @@
         ? "leads"
         : ["request", "project", "projects", "report", "geo"].includes(parts[0])
           ? "projects"
-          : "dashboard";
+          : parts[0] === "growth"
+            ? "growth"
+            : parts[0] === "help"
+              ? "help"
+              : "dashboard";
     shell(
       active,
       card("正在加载", '<p class="muted" role="status">正在获取最新记录…</p>'),
@@ -1630,7 +1651,9 @@
       } else if (parts[0] === "access") {
         // VC-12：越权访问必须显式反馈，不能静默回退到工作台。
         shell(active, card("无权限查看", '<p>当前身份无权查看「账号与作业授权」。该区域仅对总部管理身份开放，权限由总部统一分配。</p><p><a class="btn ghost" href="#/dashboard">返回工作台</a></p>'));
-      } else if (parts[0] === "growth" || !location.hash) {
+      } else if (parts[0] === "help") {
+        await help(token);
+      } else if (parts[0] === "growth") {
         await window.GrowthWorkspace.render({
           api, shell, refresh:route, alive:()=>token===epoch && !!session,
           dirty:value=>{dirty=value;}
